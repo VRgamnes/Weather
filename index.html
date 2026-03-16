@@ -454,12 +454,18 @@ function pushAlerts() {
 }
 
 function pullAlerts() {
-  fetch(WORKER_URL + '?t=' + Date.now(), { cache: 'no-store' })
+  var url = WORKER_URL + '?t=' + Date.now();
+  showSyncStatus('Connecting...', 'var(--a)');
+  fetch(url, { cache: 'no-store' })
   .then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) return r.text().then(function(txt) {
+      throw new Error('Worker returned HTTP ' + r.status + ': ' + txt.slice(0,120));
+    });
     return r.json();
   })
   .then(function(parsed) {
+    // Worker returned an error object instead of alerts
+    if (parsed.error) throw new Error('Worker error: ' + parsed.error + ' — ' + (parsed.detail||'').slice(0,120));
     var remote = parsed.alerts || [];
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
@@ -503,8 +509,31 @@ function pullAlerts() {
     showSyncStatus('Live', 'var(--ok)');
   })
   .catch(function(e) {
-    showSyncStatus('Offline', 'var(--dng)');
-    console.error('Gist pull error:', e);
+    var msg = e.message || 'Unknown error';
+    showSyncStatus('⚠️ ' + msg, 'var(--dng)');
+    console.error('Pull error:', e);
+    // Always show the error on screen so we know exactly what failed
+    var errHtml = '<div class="err" style="margin:12px">' +
+      '<strong>⚠️ Cannot connect to alert server</strong><br><br>' +
+      '<b>Error:</b> ' + msg + '<br><br>' +
+      '<b>Worker URL:</b> ' + WORKER_URL + '<br><br>' +
+      '<b>What to check:</b><br>' +
+      '1. Open <a href="' + WORKER_URL + '" target="_blank" style="color:var(--a)">' + WORKER_URL + '</a> — does it show alerts JSON?<br>' +
+      '2. If it shows an error, the Worker code needs fixing<br>' +
+      '3. If it loads fine, this is a network issue<br><br>' +
+      '<button onclick="pullAlerts()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;padding:8px 16px;font-size:13px;cursor:pointer;font-family:sans-serif">Retry</button>' +
+      '</div>';
+    var wc = document.getElementById('wC');
+    if (wc) {
+      // Append error below weather content rather than replacing it
+      var errDiv = document.getElementById('syncErrDiv');
+      if (!errDiv) {
+        errDiv = document.createElement('div');
+        errDiv.id = 'syncErrDiv';
+        wc.parentNode.insertBefore(errDiv, wc);
+      }
+      errDiv.innerHTML = errHtml;
+    }
   });
 }
 
