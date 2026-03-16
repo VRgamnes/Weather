@@ -212,13 +212,14 @@ body.red{animation:rp 2s infinite}
 <div class="pg on" id="wPg">
   <!-- MAP SECTION -->
   <div class="map-controls" id="wMapControls">
-    <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Rain</button>
+    <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Radar</button>
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
-    <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
+    <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🛰 Satellite</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">☁️ Clouds</button>
     <div class="map-legend">
-      <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>Your location</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>You</div>
       <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert zone</div>
+      <div class="leg-item" id="layerLegend" style="font-size:10px;color:var(--mut)">Live radar</div>
     </div>
   </div>
   <div id="usMap"></div>
@@ -380,7 +381,7 @@ function getLayerUrl(type) {
   // OpenWeatherMap free tile layers (no key needed for basic tiles via open proxy)
   // Using RainViewer for precipitation (100% free, no key)
   if (type === 'rain') {
-    return 'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png';
+    return 'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/4/1_1.png';
   }
   // For wind/temp/cloud — use open-meteo visual crossing tiles via wttr.in style
   // Fallback to a nice semi-transparent overlay showing the concept
@@ -398,7 +399,7 @@ function addRadarLayer() {
         radarTimestamp = frames[frames.length - 1].time;
       }
       radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/4/1_1.png',
         { opacity: 0.7, tileSize: 256, zIndex: 2 }
       );
       radarLayer.addTo(wMap);
@@ -406,55 +407,112 @@ function addRadarLayer() {
     .catch(function() {
       // Fallback with approximate timestamp
       radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/4/1_1.png',
         { opacity: 0.7, tileSize: 256, zIndex: 2 }
       );
       radarLayer.addTo(wMap);
     });
 }
 
+// RainViewer layer type codes (all free, no key):
+// /2/radar/  = precipitation radar
+// /2/satellite/ = satellite cloud cover
+// Infrared satellite for cloud/temp approximation
 var wLayerObj = null;
+var rvData = null; // cached rainviewer manifest
+
+var layerNames = {rain:'Live radar', wind:'Wind + radar', temp:'Infrared satellite', clouds:'Satellite clouds'};
+function updateLegend(type) {
+  var el = document.getElementById('layerLegend');
+  if (el) el.textContent = layerNames[type] || type;
+}
+function getRVData(cb) {
+  if (rvData) { cb(rvData); return; }
+  fetch('https://api.rainviewer.com/public/weather-maps.json')
+    .then(function(r){ return r.json(); })
+    .then(function(d){ rvData = d; cb(d); })
+    .catch(function(){ cb(null); });
+}
+
+function clearWLayers() {
+  if (wLayerObj) { wMap.removeLayer(wLayerObj); wLayerObj = null; }
+  if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer = null; }
+}
+
 function setWLayer(type, btn) {
   wLayer = type;
   document.querySelectorAll('.mc-btn').forEach(function(b) { b.classList.remove('on'); });
   btn.classList.add('on');
   if (!wMap) return;
-  if (wLayerObj) { wMap.removeLayer(wLayerObj); wLayerObj = null; }
-  if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer = null; }
+  clearWLayers();
 
-  if (type === 'rain') {
-    addRadarLayer();
-  } else if (type === 'wind') {
-    // OpenWeatherMap wind layer via open endpoint
-    wLayerObj = L.tileLayer(
-      'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=demo',
-      { opacity: 0.6, zIndex: 2 }
-    );
-    wLayerObj.addTo(wMap);
-    // Also show radar dimmed
-    radarLayer = L.tileLayer(
-      'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
-      { opacity: 0.3, tileSize: 256, zIndex: 2 }
-    );
-    radarLayer.addTo(wMap);
-  } else if (type === 'temp') {
-    wLayerObj = L.tileLayer(
-      'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=demo',
-      { opacity: 0.6, zIndex: 2 }
-    );
-    wLayerObj.addTo(wMap);
-  } else if (type === 'clouds') {
-    wLayerObj = L.tileLayer(
-      'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=demo',
-      { opacity: 0.6, zIndex: 2 }
-    );
-    wLayerObj.addTo(wMap);
-    radarLayer = L.tileLayer(
-      'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
-      { opacity: 0.4, tileSize: 256, zIndex: 3 }
-    );
-    radarLayer.addTo(wMap);
-  }
+  updateLegend(type);
+  getRVData(function(d) {
+    var radarFrames = d && d.radar && d.radar.past ? d.radar.past : [];
+    var satFrames   = d && d.satellite && d.satellite.infrared ? d.satellite.infrared : [];
+    var latestRadar = radarFrames.length ? radarFrames[radarFrames.length-1].time : radarTimestamp;
+    var latestSat   = satFrames.length   ? satFrames[satFrames.length-1].time   : null;
+
+    if (type === 'rain') {
+      // Live precipitation radar
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
+        { opacity: 0.75, tileSize: 256, zIndex: 2 }
+      ).addTo(wMap);
+
+    } else if (type === 'wind') {
+      // Radar + wind barbs: RainViewer radar at low opacity, plus
+      // Windy/Ventusky open wind tile (no key, free)
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
+        { opacity: 0.4, tileSize: 256, zIndex: 2 }
+      ).addTo(wMap);
+      // Open-Meteo wind particles via a free WMS-style service
+      wLayerObj = L.tileLayer(
+        'https://tiles.windy.com/tiles/windy-plugin-composite/wind/{z}/{x}/{y}',
+        { opacity: 0.7, zIndex: 3, crossOrigin: true }
+      );
+      wLayerObj.on('tileerror', function() {
+        // Fallback: show radar only if wind tiles fail
+        if (wLayerObj) { wMap.removeLayer(wLayerObj); wLayerObj = null; }
+      });
+      wLayerObj.addTo(wMap);
+
+    } else if (type === 'temp') {
+      // Use RainViewer satellite infrared — shows heat signatures (warm=bright)
+      if (latestSat) {
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com' + (satFrames[satFrames.length-1].path) + '/256/{z}/{x}/{y}/0/0_0.png',
+          { opacity: 0.75, tileSize: 256, zIndex: 2 }
+        ).addTo(wMap);
+      } else {
+        // Fallback: Stamen terrain tinting shows elevation/temp proxy
+        radarLayer = L.tileLayer(
+          'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png',
+          { opacity: 0.5, zIndex: 2 }
+        ).addTo(wMap);
+      }
+      // Add radar lightly on top
+      wLayerObj = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
+        { opacity: 0.35, tileSize: 256, zIndex: 3 }
+      ).addTo(wMap);
+
+    } else if (type === 'clouds') {
+      // RainViewer satellite (infrared cloud imagery — real satellite)
+      if (latestSat) {
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com' + (satFrames[satFrames.length-1].path) + '/256/{z}/{x}/{y}/0/0_0.png',
+          { opacity: 0.8, tileSize: 256, zIndex: 2 }
+        ).addTo(wMap);
+      } else {
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
+          { opacity: 0.7, tileSize: 256, zIndex: 2 }
+        ).addTo(wMap);
+      }
+    }
+  });
 }
 
 function updateUserMarker(lat, lon, cityName) {
@@ -509,10 +567,10 @@ function initAdminMap() {
     .then(function(d) {
       var frames = d.radar && d.radar.past;
       var ts = frames && frames.length ? frames[frames.length - 1].time : radarTimestamp;
-      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + ts + '/256/{z}/{x}/{y}/2/1_1.png',
+      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + ts + '/256/{z}/{x}/{y}/4/1_1.png',
         { opacity: 0.55, tileSize: 256, zIndex: 2 }).addTo(aMap);
     }).catch(function() {
-      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/4/1_1.png',
         { opacity: 0.55, tileSize: 256, zIndex: 2 }).addTo(aMap);
     });
 
