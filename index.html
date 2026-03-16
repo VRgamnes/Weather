@@ -218,7 +218,7 @@ input,textarea,select{font-size:16px!important}
 .hti{font-size:12px;font-weight:500;margin-bottom:1px}
 .hms{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hmt{font-size:10px;color:var(--mut);margin-top:2px;opacity:.75}
-.db{background:none;border:none;color:var(--mut);cursor:pointer;font-size:17px;padding:0 3px;line-height:1;flex-shrink:0}.db:hover{color:var(--dng)}
+.db{background:none;border:none;color:var(--mut);cursor:pointer;font-size:17px;padding:0 3px;line-height:1;flex-shrink:0}.db:hover{color:var(--dng)}.edb{background:none;border:none;color:var(--mut);cursor:pointer;font-size:14px;padding:0 3px;line-height:1;flex-shrink:0}.edb:hover{color:var(--a)}
 .he{font-size:12px;color:var(--mut);text-align:center;padding:13px 0}
 .bsm{display:inline-block;font-size:10px;padding:1px 6px;border-radius:9px;margin-left:4px;vertical-align:middle}
 .bsc{background:rgba(79,195,247,.15);color:var(--a)}.bex{background:rgba(120,144,156,.2);color:#90a4ae}
@@ -265,8 +265,9 @@ input,textarea,select{font-size:16px!important}
   </div>
   <!-- Row 2: location search -->
   <div class="nav-row2">
-    <input class="li" id="locIn" placeholder="Search city or ZIP..." value="New York"/>
+    <input class="li" id="locIn" placeholder="City, ZIP or address..." value="New York"/>
     <button class="go" onclick="doSearch()">Go</button>
+    <button class="go" id="gpsBtn" onclick="useGPS()" title="Use my location" style="background:var(--card);border:1px solid var(--bdr);color:var(--a);padding:8px 10px;font-size:16px">📍</button>
   </div>
 </nav>
 <div class="main-content">
@@ -475,6 +476,22 @@ function pullAlerts() {
       if (a.active && !a.expired && a.expires && new Date(a.expires) > now)
         expT[a.id] = setTimeout(function(){ expA(a.id); }, new Date(a.expires) - now);
     });
+    // Notify about any NEW alerts we haven't seen before
+    var notified = JSON.parse(localStorage.getItem('st_notified') || '[]');
+    var prevIds = window._prevAlertIds || [];
+    remote.forEach(function(a) {
+      if (a.active && !a.expired && alertAppliesToCity(a)) {
+        var isNew = prevIds.indexOf(String(a.id)) < 0 && notified.indexOf(String(a.id)) < 0;
+        if (isNew) {
+          notified.push(String(a.id));
+          if (Notification.permission === 'granted') {
+            fireNotification(a);
+          }
+        }
+      }
+    });
+    try { localStorage.setItem('st_notified', JSON.stringify(notified.slice(-100))); } catch(e){}
+    window._prevAlertIds = remote.map(function(a){ return String(a.id); });
     renderA();
     renderH();
     chkRed();
@@ -1085,31 +1102,155 @@ function chgPin() {
 }
 
 // ─── TOGGLES ─────────────────────────────────────────────
-function togP() { pushOn=!pushOn; document.getElementById('pTg').classList.toggle('on',pushOn); if(pushOn&&'Notification'in window&&Notification.permission==='default')Notification.requestPermission(); }
+function togP() {
+  if (pushOn) {
+    pushOn = false;
+    document.getElementById('pTg').classList.remove('on');
+    return;
+  }
+  // Turning ON — must happen inside user gesture (this click counts)
+  if (!('Notification' in window)) {
+    alert('Notifications are not supported on this browser.\n\niOS users: Add StormTrack to your Home Screen first, then notifications will work.');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    alert('Notifications are blocked for this site.\n\nTo fix:\n1. Tap the address bar\n2. Tap the lock/info icon\n3. Find Notifications and set to Allow\n4. Reload the page');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    pushOn = true;
+    document.getElementById('pTg').classList.add('on');
+    try {
+      new Notification('⛈ StormTrack', {
+        body: 'Notifications ON — you will be alerted when new alerts fire.',
+        icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png'
+      });
+    } catch(e) {}
+    return;
+  }
+  // permission === 'default' — request it (must be called from user gesture)
+  var p = Notification.requestPermission();
+  // Some browsers return a promise, some call a callback
+  if (p && typeof p.then === 'function') {
+    p.then(function(result) {
+      if (result === 'granted') {
+        pushOn = true;
+        document.getElementById('pTg').classList.add('on');
+        try { new Notification('⛈ StormTrack', { body: 'Notifications enabled!', icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png' }); } catch(e) {}
+      } else {
+        alert('Notification permission was denied. Alerts will still show on screen.');
+      }
+    });
+  }
+}
 function togR() { redOn=!redOn; document.getElementById('rTg').classList.toggle('on',redOn); }
 function selT(btn) { curType=btn.dataset.t; document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('sel');}); btn.classList.add('sel'); }
 
 // ─── ALERTS ──────────────────────────────────────────────
+var editingId = null; // null = new alert, number = editing existing
+
 function sendA() {
   var title=document.getElementById('aT').value.trim(), msg=document.getElementById('aM').value.trim();
   var sv=document.getElementById('aSd').value, ev=document.getElementById('aEx').value;
   if (!title) { document.getElementById('aT').style.borderColor='var(--dng)'; return; }
-  if (!msg) { document.getElementById('aM').style.borderColor='var(--dng)'; return; }
+  if (!msg)   { document.getElementById('aM').style.borderColor='var(--dng)'; return; }
   document.getElementById('aT').style.borderColor=''; document.getElementById('aM').style.borderColor='';
   var now=new Date(), sT=sv?new Date(sv):null, eT=ev?new Date(ev):null;
-  var isSched=sT&&sT>now, id=Date.now();
+  var isSched=sT&&sT>now;
   var zll = zoneLatLngs.length > 2 ? JSON.parse(JSON.stringify(zoneLatLngs)) : [];
-  var a = { id:id, type:curType, title:title, msg:msg, push:pushOn, redAlert:redOn,
-    sendAt:sT, expires:eT, created:now, active:!isSched, scheduled:isSched, expired:false,
-    zoneLatLngs:zll };
-  alerts.unshift(a);
-  if (isSched) setTimeout(function(){actA(id);}, sT-now); else actA(id);
-  if (eT&&eT>now) expT[id]=setTimeout(function(){expA(id);},eT-now);
+
+  if (editingId !== null) {
+    // UPDATE existing alert
+    var a = alerts.find(function(x){ return x.id === editingId; });
+    if (a) {
+      a.type = curType; a.title = title; a.msg = msg;
+      a.redAlert = redOn; a.push = pushOn;
+      if (sT) a.sendAt = sT;
+      if (eT) { a.expires = eT; if(expT[a.id]) clearTimeout(expT[a.id]); if(eT>now) expT[a.id]=setTimeout(function(){expA(a.id);},eT-now); }
+      if (zll.length > 2) a.zoneLatLngs = zll;
+    }
+    editingId = null;
+    document.getElementById('sOk').textContent = '✓ Alert updated!';
+    document.querySelector('.sb').textContent = 'Send / Schedule Alert';
+  } else {
+    // NEW alert
+    var id = Date.now();
+    var a = { id:id, type:curType, title:title, msg:msg, push:pushOn, redAlert:redOn,
+      sendAt:sT, expires:eT, created:now, active:!isSched, scheduled:isSched, expired:false,
+      zoneLatLngs:zll };
+    alerts.unshift(a);
+    if (isSched) setTimeout(function(){actA(id);}, sT-now); else actA(id);
+    if (eT&&eT>now) expT[id]=setTimeout(function(){expA(id);},eT-now);
+    document.getElementById('sOk').textContent = isSched ? '✓ Alert scheduled!' : '✓ Alert sent!';
+  }
+
   document.getElementById('aT').value=''; document.getElementById('aM').value='';
   document.getElementById('aSd').value=''; document.getElementById('aEx').value='';
-  var ok=document.getElementById('sOk'); ok.textContent=isSched?'✓ Alert scheduled!':'✓ Alert sent!'; ok.classList.add('on'); setTimeout(function(){ok.classList.remove('on');},2500);
+  var ok=document.getElementById('sOk'); ok.classList.add('on'); setTimeout(function(){ok.classList.remove('on');},2500);
   save(); renderH(); renderA();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
+}
+
+function editA(id) {
+  var a = alerts.find(function(x){ return x.id === id; });
+  if (!a) return;
+  editingId = id;
+  // Scroll to compose form
+  document.getElementById('aT').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Fill in form fields
+  document.getElementById('aT').value = a.title;
+  document.getElementById('aM').value = a.msg;
+  if (a.sendAt) { try { document.getElementById('aSd').value = new Date(a.sendAt).toISOString().slice(0,16); } catch(e){} }
+  if (a.expires) { try { document.getElementById('aEx').value = new Date(a.expires).toISOString().slice(0,16); } catch(e){} }
+  // Set type pill
+  curType = a.type;
+  document.querySelectorAll('.tp').forEach(function(p){ p.classList.remove('sel'); });
+  var pill = document.querySelector('.tp[data-t="'+a.type+'"]');
+  if (pill) pill.classList.add('sel');
+  // Set toggles
+  redOn = a.redAlert; pushOn = a.push;
+  document.getElementById('rTg').classList.toggle('on', redOn);
+  document.getElementById('pTg').classList.toggle('on', pushOn);
+  // Load zone if exists
+  if (a.zoneLatLngs && a.zoneLatLngs.length > 2) {
+    zoneLatLngs = JSON.parse(JSON.stringify(a.zoneLatLngs));
+    document.getElementById('zSt').textContent = '✓ Zone loaded from alert';
+  }
+  // Change button to Update
+  document.querySelector('.sb').textContent = '✏️ Update Alert';
+}
+
+// ─── GPS AUTO-LOCATION ────────────────────────────────────
+function useGPS() {
+  var btn = document.getElementById('gpsBtn');
+  if (!navigator.geolocation) { alert('GPS not supported by your browser.'); return; }
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      var lat = pos.coords.latitude.toFixed(4);
+      var lon = pos.coords.longitude.toFixed(4);
+      btn.textContent = '📍'; btn.disabled = false;
+      // Reverse geocode using Open-Meteo geocoding (no key)
+      fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json')
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var city = (d.address && (d.address.city || d.address.town || d.address.village || d.address.county)) || (lat+','+lon);
+          document.getElementById('locIn').value = city;
+          loadWx(city);
+        })
+        .catch(function(){
+          // Fallback: load by coordinates directly
+          document.getElementById('locIn').value = lat+','+lon;
+          loadWx(lat+','+lon);
+        });
+    },
+    function(err) {
+      btn.textContent = '📍'; btn.disabled = false;
+      alert('Could not get your location: ' + err.message);
+    },
+    { timeout: 10000 }
+  );
 }
 function actA(id) {
   var a=alerts.find(function(x){return x.id===id;}); if(!a||a.expired) return;
@@ -1139,7 +1280,39 @@ function chkRed() {
     document.body.classList.remove('red');
   }
 }
-function doPush(a) { if('Notification'in window&&Notification.permission==='granted') new Notification('⛈ StormTrack: '+a.title,{body:a.msg}); }
+function doPush(a) {
+  // Fire notification for the VIEWER (not just admin)
+  // Called when pullAlerts detects a new active alert
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    fireNotification(a);
+  }
+  // Do not request permission here — must come from user gesture
+}
+
+function fireNotification(a) {
+  try {
+    var typeColors = {
+      warning: '#ff8f00', danger: '#e53935', info: '#4fc3f7',
+      tornado: '#9c27b0', flood: '#1e88e5', heat: '#ef6c00',
+      snow: '#90a4ae', fog: '#78909c', freeze: '#0288d1'
+    };
+    var icons = {
+      warning:'⚠️', danger:'🚨', info:'ℹ️', tornado:'🌪️',
+      flood:'🌊', heat:'🌡️', snow:'❄️', fog:'🌫️', freeze:'🧊'
+    };
+    var n = new Notification('⛈ StormTrack Alert', {
+      body: (icons[a.type] || '') + ' ' + a.title + '\n' + a.msg,
+      icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+      badge: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+      tag: 'stormtrack-' + a.id,
+      requireInteraction: ['danger','tornado'].indexOf(a.type) >= 0
+    });
+    n.onclick = function() { window.focus(); n.close(); };
+  } catch(e) {
+    console.error('Notification error:', e);
+  }
+}
 function fmt(d) { if(!d) return'—'; return new Date(d).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
 
 // ── ZONE CHECKING ────────────────────────────────────────
@@ -1214,7 +1387,7 @@ function renderH() {
         (a.zoneLatLngs&&a.zoneLatLngs.length>2?'<span class="bsm bzo">Zone</span>':'') +
       '</div><div class="hms">'+a.msg+'</div>' +
       '<div class="hmt">'+(a.sendAt&&a.scheduled?'Sends: '+fmt(a.sendAt):'Sent: '+fmt(a.created))+(a.expires?' · Expires: '+fmt(a.expires):'')+'</div>' +
-      '</div><button class="db" onclick="delA('+a.id+')">×</button></div>';
+      '</div><div style="display:flex;flex-direction:column;gap:4px"><button class="db" onclick="editA('+a.id+')" title="Edit" style="color:var(--a);font-size:13px">✏️</button><button class="db" onclick="delA('+a.id+')">×</button></div></div>';
   }).join('');
 }
 
@@ -1270,6 +1443,42 @@ document.getElementById('locIn').addEventListener('keydown',function(e){if(e.key
 
 function loadWx(city) {
   document.getElementById('wC').innerHTML='<div class="ldg"><span>⛅</span>Loading '+city+'...</div>';
+  // Support lat,lon format directly
+  var coordMatch = city.match(/^(-?[\d.]+),\s*(-?[\d.]+)$/);
+  if (coordMatch) {
+    var lat0 = parseFloat(coordMatch[1]), lon0 = parseFloat(coordMatch[2]);
+    fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat0+'&lon='+lon0+'&format=json&zoom=10')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var addr = d.address || {};
+        var n = addr.city || addr.town || addr.village || addr.county || city;
+        var reg = addr.state || addr.country || '';
+        var cntry = addr.country_code ? addr.country_code.toUpperCase() : '';
+        updateUserMarker(lat0, lon0, n);
+        fetchWeatherData(lat0, lon0, n, reg, cntry);
+      })
+      .catch(function(){ fetchWeatherData(lat0, lon0, city, '', ''); });
+    return;
+  }
+  // Use Nominatim for full address search (supports street addresses, ZIP codes, etc.)
+  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(city)+'&format=json&limit=1&addressdetails=1')
+    .then(function(r){ return r.json(); })
+    .then(function(results){
+      if (!results || !results.length) throw new Error('Location not found: "'+city+'"');
+      var res = results[0];
+      var lat1 = parseFloat(res.lat), lon1 = parseFloat(res.lon);
+      var addr = res.address || {};
+      var n = addr.city || addr.town || addr.village || addr.county || res.display_name.split(',')[0];
+      var reg = addr.state || '';
+      var cntry = addr.country || '';
+      updateUserMarker(lat1, lon1, n);
+      fetchWeatherData(lat1, lon1, n, reg, cntry);
+    })
+    .catch(function(e){
+      document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
+    });
+  return;
+  // (below line never runs — replaced by Nominatim above)
   fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(city)+'&count=1&language=en&format=json')
     .then(function(r){if(!r.ok)throw new Error('Geocode error '+r.status);return r.json();})
     .then(function(gd){
@@ -1277,6 +1486,13 @@ function loadWx(city) {
       var loc=gd.results[0];
       var lat=loc.latitude, lon=loc.longitude, name=loc.name, region=loc.admin1||'', country=loc.country||'';
       updateUserMarker(lat, lon, name);
+      fetchWeatherData(lat, lon, name, region, country);
+    }).catch(function(e){
+      document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or address.</small></div>';
+    });
+}
+
+function fetchWeatherData(lat, lon, name, region, country) {
       var url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
         '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,precipitation,surface_pressure,visibility'+
         '&hourly=temperature_2m,weather_code,precipitation_probability,is_day'+
@@ -1285,9 +1501,6 @@ function loadWx(city) {
       return fetch(url)
         .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
         .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};renderWx(wData);setLastUpdated();chkRed();});
-    })
-    .catch(function(e){
-      document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Check your connection and try again.</small></div>';
     });
 }
 
@@ -1352,10 +1565,35 @@ window.addEventListener('resize', function() {
 window.addEventListener('load', function() {
   document.getElementById('adminMap').style.display = 'none';
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
-  loadWx('New York');
-  // Pull live alerts from JSONBin on startup
+  // Auto-detect GPS location on load
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        var lat = pos.coords.latitude.toFixed(4);
+        var lon = pos.coords.longitude.toFixed(4);
+        fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=en')
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            var city = (d.address && (d.address.city || d.address.town || d.address.village || d.address.county)) || (lat+','+lon);
+            document.getElementById('locIn').value = city;
+            loadWx(city);
+          })
+          .catch(function(){ loadWx('New York'); });
+      },
+      function(){ loadWx('New York'); },
+      { timeout: 6000, maximumAge: 300000 }
+    );
+  } else {
+    loadWx('New York');
+  }
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
+  // Ask for notification permission on startup (3s delay so it feels natural)
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(function() {
+      Notification.requestPermission();
+    }, 3000);
+  }
 });
 </script>
 </div><!-- /main-content -->
