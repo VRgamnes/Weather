@@ -1069,7 +1069,6 @@ function initWeatherMap() {
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
     subdomains:'abcd',maxZoom:19,pane:'overlayPane',opacity:0.8,zIndex:5
   }).addTo(wMap);
-  enableMapClick();
 }
 
 function getLayerUrl(type) {
@@ -1928,17 +1927,7 @@ function shareAlert(id){
 
 // ── CLICK MAP FOR WEATHER ────────────────────────────────
 var mapClickMarker = null;
-function enableMapClick(){
-  if(!wMap) return;
-  wMap.on('click', function(e){
-    var lat=e.latlng.lat.toFixed(4), lon=e.latlng.lng.toFixed(4);
-    if(mapClickMarker) wMap.removeLayer(mapClickMarker);
-    var icon=L.divIcon({html:'<div style="width:12px;height:12px;background:#fff;border:2px solid var(--a,#4fc3f7);border-radius:50%"></div>',className:'',iconSize:[12,12],iconAnchor:[6,6]});
-    mapClickMarker=L.marker([lat,lon],{icon:icon}).addTo(wMap);
-    document.getElementById('locIn').value=lat+','+lon;
-    loadWx(lat+','+lon);
-  });
-}
+function enableMapClick(){ /* disabled — use Tap Location button instead */ }
 
 // ── STORM TRACKING PIN ───────────────────────────────────
 var stormPin = null, stormInterval = null;
