@@ -259,9 +259,10 @@ input,textarea,select{font-size:16px!important}
 <nav class="nav">
   <!-- Row 1: logo + tab buttons -->
   <div class="nav-row1">
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="logo">⛈ StormTrack</div>
       <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
+      <span id="notifStatusDot" title="Notifications enabled" style="display:none;width:7px;height:7px;border-radius:50%;background:#43a047;flex-shrink:0"></span>
     </div>
     <div class="tabs">
       <button class="tab on" id="tW" onclick="goW()">🌤 Weather</button>
@@ -493,7 +494,11 @@ function pullAlerts() {
         var inMyArea = alertAppliesToCity(a);
         if (isNew) {
           notified.push(String(a.id));
-          if (inMyArea && Notification.permission === 'granted') {
+          // Only fire notification if:
+          // 1. Admin toggled "Push Notification" ON for this alert
+          // 2. User has granted permission
+          // 3. Alert applies to user's location
+          if (a.push && inMyArea && Notification.permission === 'granted') {
             fireNotification(a);
           }
         }
@@ -1146,39 +1151,72 @@ function chgPin() {
 // ─── NOTIFICATIONS ───────────────────────────────────────
 function enableNotifs() {
   if (!('Notification' in window)) {
-    alert('Notifications not supported.\n\nOn iPhone: Add StormTrack to your Home Screen first (Share → Add to Home Screen), then try again.');
+    alert('Notifications not supported.\n\nOn iPhone: Add to Home Screen first (Share → Add to Home Screen), then try again.');
     return;
   }
+  if (Notification.permission === 'denied') {
+    alert('Notifications are blocked.\n\nTo fix:\n• iPhone: Settings → Safari → Notifications → StormTrack → Allow\n• Android: tap the lock icon in address bar → Notifications → Allow\nThen reload the app.');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    localStorage.setItem('st_notif', 'granted');
+    document.getElementById('notifBanner').style.display = 'none';
+    showNotifStatus();
+    return;
+  }
+  // Must be called from user gesture
   Notification.requestPermission().then(function(result) {
+    localStorage.setItem('st_notif', result);
     var banner = document.getElementById('notifBanner');
     if (result === 'granted') {
       if (banner) banner.style.display = 'none';
-      localStorage.setItem('st_notif_asked', '1');
+      showNotifStatus();
+      // Confirm notification so user knows it worked
       try {
-        new Notification('⛈ StormTrack', {
+        new Notification('⛈ StormTrack Alerts', {
           body: 'Notifications enabled! You will be alerted for weather in your area.',
-          icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png'
+          icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+          tag: 'stormtrack-welcome'
         });
       } catch(e) {}
-      // Tell SW notifications are on
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'NOTIF_GRANTED' });
       }
-    } else if (result === 'denied') {
+    } else {
       if (banner) banner.style.display = 'none';
-      localStorage.setItem('st_notif_asked', 'denied');
-      alert('Notifications blocked.\n\nTo fix: tap the lock icon in your browser address bar → Notifications → Allow, then reload.');
+      alert('Notifications were not allowed. You can enable them in your browser settings and reload.');
     }
   });
+}
+
+function showNotifStatus() {
+  // Show a small green indicator so user knows notifications are on
+  var el = document.getElementById('notifStatusDot');
+  if (!el) return;
+  if (Notification.permission === 'granted') {
+    el.style.display = 'inline-block';
+    el.title = 'Notifications enabled';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function checkShowNotifBanner() {
   var banner = document.getElementById('notifBanner');
   if (!banner) return;
+  // Always reflect real browser permission state
   if (!('Notification' in window)) { banner.style.display = 'none'; return; }
-  if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
-  if (localStorage.getItem('st_notif_asked') === 'denied') { banner.style.display = 'none'; return; }
-  // Show the banner — nicer than auto-requesting
+  if (Notification.permission === 'granted') {
+    banner.style.display = 'none';
+    localStorage.setItem('st_notif', 'granted');
+    showNotifStatus();
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    banner.style.display = 'none';
+    return;
+  }
+  // Not yet asked — show the banner
   banner.style.display = 'flex';
 }
 
@@ -1639,7 +1677,8 @@ function renderWx(d) {
 
 // ─── INIT ─────────────────────────────────────────────────
 // Poll JSONBin every 30 seconds so all users see new alerts live
-setInterval(pullAlerts, 30000);
+// Poll every 10 seconds for near-real-time updates
+setInterval(pullAlerts, 10000);
 // Weather auto-refresh every 10 min
 setInterval(function(){if(wData)loadWx(document.getElementById('locIn').value.trim()||'New York');},600000);
 
@@ -1695,6 +1734,7 @@ window.addEventListener('load', function() {
   }
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
+  showNotifStatus();
 
   // ── SERVICE WORKER + NOTIFICATIONS ──────────────────────
   if ('serviceWorker' in navigator) {
