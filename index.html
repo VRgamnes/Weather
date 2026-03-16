@@ -18,18 +18,19 @@ body.red{animation:rp 2s infinite}
 /* APP SHELL */
 .app-shell{display:flex;flex-direction:column;min-height:100vh}
 
-/* NAV — MOBILE */
-.nav{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.45);border-bottom:1px solid var(--bdr);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:1000;width:100%}
+/* NAV — MOBILE: two rows */
+.nav{display:flex;flex-direction:column;padding:10px 14px;background:rgba(0,0,0,.45);border-bottom:1px solid var(--bdr);gap:8px;position:sticky;top:0;z-index:1000;width:100%}
+.nav-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
+.nav-row2{display:flex;align-items:center;gap:6px;width:100%}
 .logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--a);white-space:nowrap}
 .desk-only{display:none}
-.nm{flex:1;min-width:100px;max-width:220px;display:flex;gap:5px}
-.li{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--bdr);border-radius:20px;padding:7px 12px;color:var(--txt);font-size:16px;font-family:'DM Sans',sans-serif;outline:none}
+.li{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--bdr);border-radius:20px;padding:8px 14px;color:var(--txt);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;min-width:0}
 .li:focus{border-color:var(--a)}
 .li::placeholder{color:var(--mut)}
-.go{background:var(--a);border:none;border-radius:15px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.go{flex-shrink:0;background:var(--a);border:none;border-radius:15px;color:#0a1628;font-size:13px;font-weight:500;padding:8px 16px;cursor:pointer;font-family:'DM Sans',sans-serif}
 .go:hover{background:var(--a2)}
-.tabs{display:flex;gap:4px}
-.tab{padding:6px 11px;border-radius:13px;font-size:12px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap}
+.tabs{display:flex;gap:5px}
+.tab{padding:7px 14px;border-radius:13px;font-size:13px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap}
 .tab.on{background:var(--a);color:#0a1628;font-weight:500}
 .tab:hover:not(.on){border-color:var(--bdr);color:var(--txt)}
 
@@ -46,12 +47,13 @@ body.red{animation:rp 2s infinite}
 @media(min-width:768px){
   .desk-only{display:block}
   .app-shell{flex-direction:row;height:100vh;overflow:hidden}
-  .nav{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;width:220px;height:100vh;padding:22px 16px;gap:18px;border-right:1px solid var(--bdr);border-bottom:none;position:fixed;top:0;left:0;overflow-y:auto}
+  .nav{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;width:220px;height:100vh;padding:22px 16px;gap:14px;border-right:1px solid var(--bdr);border-bottom:none;position:fixed;top:0;left:0;overflow-y:auto}
+  .nav-row1{flex-direction:column;align-items:flex-start;gap:4px;width:100%}
+  .nav-row2{flex-direction:column;gap:6px;width:100%}
   .logo{font-size:26px;letter-spacing:4px}
-  .nm{max-width:100%;width:100%;flex-direction:column;gap:6px}
   .li{width:100%;border-radius:10px;padding:9px 12px}
   .go{width:100%;text-align:center;padding:9px;border-radius:10px;font-size:13px}
-  .tabs{flex-direction:column;width:100%;gap:5px}
+  .tabs{flex-direction:column;width:100%;gap:5px;margin-top:4px}
   .tab{width:100%;text-align:left;padding:11px 14px;border-radius:10px;font-size:13px}
   .main-content{margin-left:220px;flex:1;min-width:0;height:100vh;overflow-y:auto}
   #usMap{height:440px}
@@ -250,15 +252,19 @@ input,textarea,select{font-size:16px!important}
 <body>
 <div class="app-shell">
 <nav class="nav">
-  <div class="logo">⛈ StormTrack</div>
-  <div style="font-size:11px;color:var(--mut);margin-top:-10px;display:none" class="desk-only">Weather Alert System</div>
-  <div class="nm">
-    <input class="li" id="locIn" placeholder="City..." value="New York"/>
-    <button class="go" onclick="doSearch()">Go</button>
+  <!-- Row 1: logo + tab buttons -->
+  <div class="nav-row1">
+    <div class="logo">⛈ StormTrack</div>
+    <div class="desk-only" style="font-size:11px;color:var(--mut)">Weather Alert System</div>
+    <div class="tabs">
+      <button class="tab on" id="tW" onclick="goW()">🌤 Weather</button>
+      <button class="tab" id="tA" onclick="goAdmin()">⚙️ Admin</button>
+    </div>
   </div>
-  <div class="tabs">
-    <button class="tab on" id="tW" onclick="goW()">Weather</button>
-    <button class="tab" id="tA" onclick="goAdmin()">Admin</button>
+  <!-- Row 2: location search -->
+  <div class="nav-row2">
+    <input class="li" id="locIn" placeholder="Search city or ZIP..." value="New York"/>
+    <button class="go" onclick="doSearch()">Go</button>
   </div>
 </nav>
 <div class="main-content">
