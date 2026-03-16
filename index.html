@@ -88,6 +88,29 @@ button,.tab,.pk,.tp,.mc-btn,.zb,.go,.sb,.pcb,.lk{touch-action:manipulation}
 input,textarea,select{font-size:16px!important}
 #adminMap{-webkit-user-select:none;user-select:none}
 
+/* Ticker */
+.ticker-wrap{overflow:hidden;background:rgba(229,57,53,.15);border-bottom:1px solid rgba(229,57,53,.3);padding:5px 0;display:none}
+.ticker-wrap.on{display:block}
+.ticker{display:inline-block;white-space:nowrap;animation:tick 20s linear infinite;font-size:13px;font-weight:500;color:#ef5350;padding:0 20px}
+@keyframes tick{0%{transform:translateX(100vw)}100%{transform:translateX(-100%)}}
+/* MOTD banner */
+.motd-banner{padding:9px 14px;text-align:center;font-size:13px;display:none;border-bottom:1px solid var(--bdr)}
+.motd-banner.on{display:block}
+/* Maintenance overlay */
+.maint-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a1628;z-index:8000;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}
+.maint-overlay.on{display:flex}
+/* Alert sound pulse */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Stats cards */
+.stat-row{display:flex;gap:8px;margin-bottom:11px}
+.stat-mini{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--bdr);border-radius:10px;padding:10px;text-align:center}
+.stat-mini-n{font-size:22px;font-weight:500;color:var(--a)}
+.stat-mini-l{font-size:10px;color:var(--mut);margin-top:2px;text-transform:uppercase;letter-spacing:.6px}
+/* Color swatches */
+.swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0}
+.swatch.on{border-color:#fff;transform:scale(1.15)}
+.color-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
 /* MAP */
 #usMap{width:100%;height:280px;background:#040e1a;position:relative;z-index:1;display:block;overflow:hidden;flex-shrink:0}
 .map-controls{display:flex;gap:6px;padding:8px 13px;background:rgba(0,0,0,.5);border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center;position:relative;z-index:2;flex-shrink:0}
@@ -112,15 +135,20 @@ input,textarea,select{font-size:16px!important}
 .asec{margin-bottom:13px}
 .ab{border-radius:10px;padding:9px 13px;margin-bottom:6px;display:flex;align-items:flex-start;gap:9px;border-left:4px solid;cursor:pointer;animation:si .3s ease;transition:opacity .15s}
 .ab:hover{opacity:.82}
-.ab.warning{background:rgba(255,143,0,.13);border-color:var(--warn)}
-.ab.danger{background:rgba(229,57,53,.15);border-color:var(--dng)}
+/* Severity-based colors — object type modifies icon only */
+.ab.emergency{background:rgba(255,0,110,.18);border-color:#ff006e}
+.ab.warning{background:rgba(229,57,53,.18);border-color:#e53935}
+.ab.watch{background:rgba(255,143,0,.16);border-color:#ff8f00}
+.ab.advisory{background:rgba(79,195,247,.12);border-color:#4fc3f7}
 .ab.info{background:rgba(79,195,247,.1);border-color:var(--a)}
-.ab.tornado{background:rgba(156,39,176,.14);border-color:#9c27b0}
-.ab.flood{background:rgba(21,101,192,.17);border-color:#1e88e5}
-.ab.heat{background:rgba(216,67,21,.14);border-color:#ef6c00}
-.ab.snow{background:rgba(120,144,156,.17);border-color:#90a4ae}
-.ab.fog{background:rgba(96,125,139,.14);border-color:#78909c}
-.ab.freeze{background:rgba(2,136,209,.14);border-color:#0288d1}
+/* Legacy support */
+.ab.danger{background:rgba(229,57,53,.18);border-color:#e53935}
+.ab.tornado{background:rgba(229,57,53,.18);border-color:#e53935}
+.ab.flood{background:rgba(229,57,53,.18);border-color:#e53935}
+.ab.heat{background:rgba(255,143,0,.16);border-color:#ff8f00}
+.ab.snow{background:rgba(79,195,247,.12);border-color:#4fc3f7}
+.ab.fog{background:rgba(79,195,247,.12);border-color:#4fc3f7}
+.ab.freeze{background:rgba(79,195,247,.12);border-color:#4fc3f7}
 .ai{font-size:17px;flex-shrink:0;margin-top:1px}
 .at{font-size:13px;font-weight:500;margin-bottom:2px}
 .ap{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:255px}
@@ -180,16 +208,24 @@ input,textarea,select{font-size:16px!important}
 .tr2{display:flex;gap:7px}.tr2 .fg{flex:1}
 .tps{display:flex;gap:5px;flex-wrap:wrap}
 .tp{padding:4px 10px;border-radius:13px;font-size:11px;cursor:pointer;border:1px solid var(--bdr);background:none;color:var(--mut);transition:all .15s;font-family:'DM Sans',sans-serif}
-.tp.warning.sel{background:rgba(255,143,0,.2);border-color:var(--warn);color:var(--warn)}
-.tp.danger.sel{background:rgba(229,57,53,.2);border-color:var(--dng);color:var(--dng)}
+/* Severity pills */
+.tp.emergency.sel{background:rgba(255,0,110,.25);border-color:#ff006e;color:#ff6eb4}
+.tp.warning.sel{background:rgba(229,57,53,.2);border-color:#e53935;color:#ef5350}
+.tp.watch.sel{background:rgba(255,143,0,.2);border-color:#ff8f00;color:#ffb74d}
+.tp.advisory.sel{background:rgba(79,195,247,.15);border-color:#4fc3f7;color:#81d4fa}
+/* Event pills */
+.tp.tornado.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.flood.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.heat.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.snow.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.fog.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.freeze.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.wind.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
+.tp.thunder.sel{background:rgba(255,255,255,.1);border-color:#ccc;color:#fff}
 .tp.info.sel{background:rgba(79,195,247,.15);border-color:var(--a);color:var(--a)}
-.tp.tornado.sel{background:rgba(156,39,176,.2);border-color:#9c27b0;color:#ce93d8}
-.tp.flood.sel{background:rgba(21,101,192,.2);border-color:#1e88e5;color:#90caf9}
-.tp.heat.sel{background:rgba(216,67,21,.2);border-color:#ef6c00;color:#ffcc80}
-.tp.snow.sel{background:rgba(120,144,156,.2);border-color:#90a4ae;color:#cfd8dc}
-.tp.fog.sel{background:rgba(96,125,139,.2);border-color:#78909c;color:#b0bec5}
-.tp.freeze.sel{background:rgba(2,136,209,.2);border-color:#0288d1;color:#81d4fa}
 .tp:hover:not(.sel){border-color:rgba(255,255,255,.25);color:var(--txt)}
+/* Section labels in type picker */
+.tp-section{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;width:100%;margin-top:8px;margin-bottom:2px}
 .tgr{display:flex;align-items:center;gap:9px;margin-bottom:9px}
 .tgl{font-size:13px;color:var(--txt);flex:1}.tgs{font-size:11px;color:var(--mut);margin-top:1px}
 .tg{width:41px;height:23px;border-radius:12px;background:rgba(255,255,255,.12);border:1px solid var(--bdr);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
@@ -214,11 +250,12 @@ input,textarea,select{font-size:16px!important}
 .hi2{padding:9px 0;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
 .hi2:last-child{border-bottom:none}
 .hb{font-size:10px;padding:2px 8px;border-radius:12px;flex-shrink:0;margin-top:2px;white-space:nowrap}
-.hb.warning{background:rgba(255,143,0,.2);color:var(--warn)}.hb.danger{background:rgba(229,57,53,.2);color:var(--dng)}
-.hb.info{background:rgba(79,195,247,.15);color:var(--a)}.hb.tornado{background:rgba(156,39,176,.2);color:#ce93d8}
-.hb.flood{background:rgba(21,101,192,.2);color:#90caf9}.hb.heat{background:rgba(216,67,21,.2);color:#ffcc80}
-.hb.snow{background:rgba(120,144,156,.2);color:#cfd8dc}.hb.fog{background:rgba(96,125,139,.2);color:#b0bec5}
-.hb.freeze{background:rgba(2,136,209,.2);color:#81d4fa}
+.hb.emergency{background:rgba(255,0,110,.2);color:#ff6eb4}
+.hb.warning{background:rgba(229,57,53,.2);color:#ef5350}
+.hb.watch{background:rgba(255,143,0,.2);color:#ffb74d}
+.hb.advisory,.hb.info{background:rgba(79,195,247,.15);color:var(--a)}
+.hb.danger{background:rgba(229,57,53,.2);color:#ef5350}
+.hb.tornado,.hb.flood,.hb.heat,.hb.snow,.hb.fog,.hb.freeze,.hb.wind,.hb.thunder{background:rgba(255,255,255,.1);color:#ccc}
 .hbd{flex:1;min-width:0}
 .hti{font-size:12px;font-weight:500;margin-bottom:1px}
 .hms{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -278,6 +315,24 @@ input,textarea,select{font-size:16px!important}
 </nav>
 <div class="main-content">
 <!-- WEATHER PAGE -->
+<!-- TICKER -->
+<div class="ticker-wrap" id="tickerWrap">
+  <div class="ticker" id="tickerText">⚠️ Severe weather alert in your area</div>
+</div>
+
+<!-- MOTD BANNER -->
+<div class="motd-banner" id="motdBanner">
+  <span id="motdText"></span>
+</div>
+
+<!-- MAINTENANCE OVERLAY -->
+<div class="maint-overlay" id="maintOverlay">
+  <div style="font-size:56px;margin-bottom:16px">🔧</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--a);margin-bottom:10px">Maintenance Mode</div>
+  <div style="font-size:15px;color:var(--txt);margin-bottom:8px;font-weight:500" id="maintMsg">StormTrack is temporarily unavailable</div>
+  <div style="font-size:13px;color:var(--mut)">Please check back soon</div>
+</div>
+
 <div class="pg on" id="wPg">
 
   <!-- NOTIFICATION FULL PROMPT -->
@@ -377,17 +432,26 @@ input,textarea,select{font-size:16px!important}
 
   <div class="ac">
     <div class="ct">Compose Alert</div>
-    <div class="fg"><label class="fl">Type</label><div class="tps">
-      <button class="tp warning sel" data-t="warning" onclick="selT(this)">⚠️ Warning</button>
-      <button class="tp danger" data-t="danger" onclick="selT(this)">🚨 Danger</button>
-      <button class="tp info" data-t="info" onclick="selT(this)">ℹ️ Advisory</button>
-      <button class="tp tornado" data-t="tornado" onclick="selT(this)">🌪️ Tornado</button>
-      <button class="tp flood" data-t="flood" onclick="selT(this)">🌊 Flood</button>
-      <button class="tp heat" data-t="heat" onclick="selT(this)">🌡️ Heat</button>
-      <button class="tp snow" data-t="snow" onclick="selT(this)">❄️ Snow</button>
-      <button class="tp fog" data-t="fog" onclick="selT(this)">🌫️ Fog</button>
-      <button class="tp freeze" data-t="freeze" onclick="selT(this)">🧊 Freeze</button>
-    </div></div>
+    <div class="fg">
+      <label class="fl">Severity</label>
+      <div class="tps" id="severityPills">
+        <button class="tp emergency" data-sev="emergency" onclick="selSev(this)">🚨 Emergency</button>
+        <button class="tp warning sel" data-sev="warning" onclick="selSev(this)">⚠️ Warning</button>
+        <button class="tp watch" data-sev="watch" onclick="selSev(this)">👁 Watch</button>
+        <button class="tp advisory" data-sev="advisory" onclick="selSev(this)">ℹ️ Advisory</button>
+      </div>
+      <label class="fl" style="margin-top:10px">Event Type <span style="color:var(--mut);font-size:10px;text-transform:none;letter-spacing:0">(optional — select one or more)</span></label>
+      <div class="tps" id="eventPills">
+        <button class="tp tornado" data-ev="tornado" onclick="togEv(this)">🌪️ Tornado</button>
+        <button class="tp flood" data-ev="flood" onclick="togEv(this)">🌊 Flood</button>
+        <button class="tp heat" data-ev="heat" onclick="togEv(this)">🌡️ Heat</button>
+        <button class="tp snow" data-ev="snow" onclick="togEv(this)">❄️ Snow</button>
+        <button class="tp fog" data-ev="fog" onclick="togEv(this)">🌫️ Fog</button>
+        <button class="tp freeze" data-ev="freeze" onclick="togEv(this)">🧊 Freeze</button>
+        <button class="tp wind" data-ev="wind" onclick="togEv(this)">💨 Wind</button>
+        <button class="tp thunder" data-ev="thunder" onclick="togEv(this)">⛈ Thunder</button>
+      </div>
+    </div>
     <div class="fg"><label class="fl">Title</label><input class="inp" id="aT" placeholder="e.g. Winter Storm Warning"/></div>
     <div class="fg"><label class="fl">Message</label><textarea class="txta" id="aM" placeholder="Describe the alert..."></textarea></div>
     <div class="tr2">
@@ -413,6 +477,73 @@ input,textarea,select{font-size:16px!important}
   <div class="ac"><button class="sb" onclick="sendA()">Send / Schedule Alert</button><div class="sok" id="sOk"></div></div>
 
   <div class="ac"><div class="ct">Alert History</div><div id="hC"><div class="he">No alerts yet</div></div></div>
+
+  <!-- APP STATS -->
+  <div class="ac">
+    <div class="ct">App Stats</div>
+    <div class="stat-row">
+      <div class="stat-mini"><div class="stat-mini-n" id="statAlerts">0</div><div class="stat-mini-l">Active Alerts</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statTotal">0</div><div class="stat-mini-l">Total Sent</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statSyncs">0</div><div class="stat-mini-l">Syncs Today</div></div>
+    </div>
+  </div>
+
+  <!-- TICKER -->
+  <div class="ac">
+    <div class="ct">Alert Ticker</div>
+    <div class="fg"><label class="fl">Ticker Message</label><input class="inp" id="tickerInput" placeholder="e.g. Severe weather watch in effect..."/></div>
+    <div style="display:flex;gap:7px">
+      <button class="sb" style="flex:1" onclick="saveTicker()">Show Ticker</button>
+      <button class="sb" style="flex:1;background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="hideTicker()">Hide Ticker</button>
+    </div>
+  </div>
+
+  <!-- MESSAGE OF THE DAY -->
+  <div class="ac">
+    <div class="ct">Message of the Day</div>
+    <div class="fg"><label class="fl">Message</label><input class="inp" id="motdInput" placeholder="e.g. Stay indoors today — strong storms expected"/></div>
+    <div class="fg">
+      <label class="fl">Banner Color</label>
+      <div class="color-row">
+        <div class="swatch on" style="background:#1e3a6e" data-col="#1e3a6e" onclick="selMotdCol(this)"></div>
+        <div class="swatch" style="background:#e53935" data-col="#e53935" onclick="selMotdCol(this)"></div>
+        <div class="swatch" style="background:#ff8f00" data-col="#ff8f00" onclick="selMotdCol(this)"></div>
+        <div class="swatch" style="background:#43a047" data-col="#43a047" onclick="selMotdCol(this)"></div>
+        <div class="swatch" style="background:#9c27b0" data-col="#9c27b0" onclick="selMotdCol(this)"></div>
+        <div class="swatch" style="background:#0288d1" data-col="#0288d1" onclick="selMotdCol(this)"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:7px">
+      <button class="sb" style="flex:1" onclick="saveMotd()">Show Message</button>
+      <button class="sb" style="flex:1;background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="hideMotd()">Hide Message</button>
+    </div>
+  </div>
+
+  <!-- ALERT SOUND -->
+  <div class="ac">
+    <div class="ct">Alert Sound</div>
+    <div class="tgr"><div><div class="tgl">Play alarm sound on danger alerts</div><div class="tgs">Fires when Emergency or Warning alert activates</div></div><div class="tg on" id="soundTg" onclick="togSound()"><div class="tgk"></div></div></div>
+    <div style="display:flex;gap:7px;margin-top:6px">
+      <button class="sb" style="background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="testSound()">🔊 Test Sound</button>
+    </div>
+  </div>
+
+  <!-- MAINTENANCE MODE -->
+  <div class="ac">
+    <div class="ct">Maintenance Mode</div>
+    <div class="fg"><label class="fl">Message shown to users</label><input class="inp" id="maintInput" placeholder="e.g. Back in 10 minutes..."/></div>
+    <div style="display:flex;gap:7px">
+      <button class="sb" style="flex:1;background:rgba(229,57,53,.2);color:#ef5350;border:1px solid rgba(229,57,53,.3)" onclick="enableMaint()">🔧 Enable Maintenance</button>
+      <button class="sb" style="flex:1;background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="disableMaint()">✓ Disable</button>
+    </div>
+  </div>
+
+  <!-- CLEAR ALL ALERTS -->
+  <div class="ac">
+    <div class="ct">Danger Zone</div>
+    <button class="sb" style="background:rgba(229,57,53,.15);color:#ef5350;border:1px solid rgba(229,57,53,.3);margin-bottom:8px" onclick="clearAllAlerts()">🗑 Clear All Alerts</button>
+    <button class="sb" style="background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="pullAlerts()">🔄 Force Sync Now</button>
+  </div>
 
   <div class="ac">
     <div class="ct">Change PIN</div>
@@ -447,11 +578,76 @@ var zTool = 'draw', zoneLatLngs = [], adminDrawing = false;
 var expT = {};
 var isSyncing = false;
 
-var ICO  = {warning:'⚠️',danger:'🚨',info:'ℹ️',tornado:'🌪️',flood:'🌊',heat:'🌡️',snow:'❄️',fog:'🌫️',freeze:'🧊'};
-var LBL  = {warning:'Warning',danger:'Danger',info:'Advisory',tornado:'Tornado',flood:'Flood',heat:'Heat',snow:'Snow',fog:'Fog',freeze:'Freeze'};
-var TCOL = {warning:'#ffb74d',danger:'#ef5350',info:'#4fc3f7',tornado:'#ce93d8',flood:'#90caf9',heat:'#ffcc80',snow:'#cfd8dc',fog:'#b0bec5',freeze:'#81d4fa'};
-var FCOL = {warning:'rgba(255,143,0,',danger:'rgba(229,57,53,',info:'rgba(79,195,247,',tornado:'rgba(156,39,176,',flood:'rgba(21,101,192,',heat:'rgba(216,67,21,',snow:'rgba(120,144,156,',fog:'rgba(96,125,139,',freeze:'rgba(2,136,209,'};
-var DT   = ['danger','tornado','flood','heat'];
+// Severity → color mapping (this drives banner color, NOT event type)
+var SEV_COLOR = {
+  emergency: '#ff006e',
+  warning:   '#e53935',
+  watch:     '#ff8f00',
+  advisory:  '#4fc3f7',
+  info:      '#4fc3f7'
+};
+var SEV_FCOLOR = {
+  emergency: 'rgba(255,0,110,',
+  warning:   'rgba(229,57,53,',
+  watch:     'rgba(255,143,0,',
+  advisory:  'rgba(79,195,247,',
+  info:      'rgba(79,195,247,'
+};
+var SEV_ICO = {
+  emergency: '🚨',
+  warning:   '⚠️',
+  watch:     '👁',
+  advisory:  'ℹ️',
+  info:      'ℹ️'
+};
+var SEV_LBL = {
+  emergency: 'Emergency',
+  warning:   'Warning',
+  watch:     'Watch',
+  advisory:  'Advisory',
+  info:      'Advisory'
+};
+var EV_ICO = {
+  tornado:'🌪️', flood:'🌊', heat:'🌡️', snow:'❄️',
+  fog:'🌫️', freeze:'🧊', wind:'💨', thunder:'⛈'
+};
+
+// Legacy support for old alerts stored with old type names
+var LEGACY_SEV = {
+  danger: 'warning', warning: 'warning', info: 'advisory',
+  tornado: 'warning', flood: 'warning', heat: 'watch',
+  snow: 'advisory', fog: 'advisory', freeze: 'advisory'
+};
+
+function getAlertSev(a)  { return a.severity || LEGACY_SEV[a.type] || 'advisory'; }
+function getAlertEvts(a) { return a.events || (EV_ICO[a.type] ? [a.type] : []); }
+function getAlertColor(a){ return SEV_COLOR[getAlertSev(a)] || '#4fc3f7'; }
+function getAlertFColor(a){ return SEV_FCOLOR[getAlertSev(a)] || 'rgba(79,195,247,'; }
+function getAlertIcon(a) {
+  var evts = getAlertEvts(a);
+  var sevIco = SEV_ICO[getAlertSev(a)] || '⚠️';
+  if (!evts.length) return sevIco;
+  return evts.map(function(e){ return EV_ICO[e]||''; }).join('') + sevIco;
+}
+function getAlertLabel(a){
+  var evts = getAlertEvts(a);
+  var sevLbl = SEV_LBL[getAlertSev(a)] || 'Alert';
+  if (!evts.length) return sevLbl;
+  var evtStr = evts.map(function(e){ return e.charAt(0).toUpperCase()+e.slice(1); }).join('/');
+  return evtStr + ' ' + sevLbl;
+}
+
+// Legacy lookups (used in places that still reference old type system)
+var ICO  = {warning:'⚠️',danger:'🚨',info:'ℹ️',emergency:'🚨',watch:'👁',advisory:'ℹ️',tornado:'🌪️',flood:'🌊',heat:'🌡️',snow:'❄️',fog:'🌫️',freeze:'🧊',wind:'💨',thunder:'⛈'};
+var LBL  = {warning:'Warning',danger:'Warning',info:'Advisory',emergency:'Emergency',watch:'Watch',advisory:'Advisory',tornado:'Tornado',flood:'Flood',heat:'Heat',snow:'Snow',fog:'Fog',freeze:'Freeze',wind:'Wind',thunder:'Thunder'};
+var TCOL = {warning:'#e53935',danger:'#e53935',emergency:'#ff006e',watch:'#ff8f00',advisory:'#4fc3f7',info:'#4fc3f7',tornado:'#e53935',flood:'#e53935',heat:'#ff8f00',snow:'#4fc3f7',fog:'#4fc3f7',freeze:'#4fc3f7',wind:'#ff8f00',thunder:'#e53935'};
+var FCOL = {warning:'rgba(229,57,53,',danger:'rgba(229,57,53,',emergency:'rgba(255,0,110,',watch:'rgba(255,143,0,',advisory:'rgba(79,195,247,',info:'rgba(79,195,247,',tornado:'rgba(229,57,53,',flood:'rgba(229,57,53,',heat:'rgba(255,143,0,',snow:'rgba(79,195,247,',fog:'rgba(79,195,247,',freeze:'rgba(79,195,247,',wind:'rgba(255,143,0,',thunder:'rgba(229,57,53,'};
+var DT   = ['emergency','warning','danger','tornado','flood','thunder'];
+
+// Current selection state
+var curSeverity = 'warning';
+var curEvents   = [];
+var curType     = 'warning'; // kept for legacy compatibility
 
 // ─── GIST SYNC ────────────────────────────────────────────
 function showSyncStatus(msg, color) {
@@ -467,7 +663,7 @@ function pushAlerts() {
   fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ alerts: alerts })
+    body: JSON.stringify({ alerts: alerts, settings: appSettings })
   })
   .then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -500,6 +696,8 @@ function pullAlerts() {
     // Worker returned an error object instead of alerts
     if (parsed.error) throw new Error('Worker error: ' + parsed.error + ' — ' + (parsed.detail||'').slice(0,120));
     var remote = parsed.alerts || [];
+    if (parsed.settings) applySettings(parsed.settings);
+    updateStats();
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
@@ -1219,6 +1417,155 @@ function chgPin() {
   fb.className='pcf ok'; fb.textContent='PIN updated!'; setTimeout(function(){fb.textContent='';},3000);
 }
 
+// ── APP SETTINGS (stored in Gist alongside alerts) ────────────────────────
+var appSettings = {
+  ticker: '', tickerOn: false,
+  motd: '', motdOn: false, motdColor: '#1e3a6e',
+  maintOn: false, maintMsg: '',
+  soundOn: true
+};
+var motdColor = '#1e3a6e';
+var soundOn = true;
+var syncCount = parseInt(localStorage.getItem('st_syncs_today') || '0');
+var lastSyncDay = localStorage.getItem('st_sync_day') || '';
+
+function updateStats() {
+  var today = new Date().toDateString();
+  if (lastSyncDay !== today) { syncCount = 0; lastSyncDay = today; }
+  syncCount++;
+  localStorage.setItem('st_syncs_today', syncCount);
+  localStorage.setItem('st_sync_day', today);
+  var el = document.getElementById('statSyncs'); if(el) el.textContent = syncCount;
+  var act = alerts.filter(function(a){return a.active&&!a.expired;}).length;
+  var tot = alerts.length;
+  var sa = document.getElementById('statAlerts'); if(sa) sa.textContent = act;
+  var st = document.getElementById('statTotal');  if(st) st.textContent = tot;
+}
+
+function applySettings(s) {
+  if (!s) return;
+  appSettings = s;
+  // Ticker
+  var tw = document.getElementById('tickerWrap'), tt = document.getElementById('tickerText');
+  if (tw) tw.classList.toggle('on', !!s.tickerOn);
+  if (tt && s.ticker) { tt.textContent = s.ticker; tt.style.animationDuration = Math.max(8, s.ticker.length * 0.4) + 's'; }
+  // MOTD
+  var mb = document.getElementById('motdBanner'), mt = document.getElementById('motdText');
+  if (mb) { mb.classList.toggle('on', !!s.motdOn); if(s.motdColor) mb.style.background = s.motdColor + '33'; mb.style.borderBottomColor = s.motdColor || '#4fc3f7'; mb.style.color = '#fff'; }
+  if (mt && s.motd) mt.textContent = s.motd;
+  // Maintenance
+  var mo = document.getElementById('maintOverlay'), mm = document.getElementById('maintMsg');
+  if (mo) mo.classList.toggle('on', !!s.maintOn);
+  if (mm && s.maintMsg) mm.textContent = s.maintMsg;
+  // Sound
+  soundOn = s.soundOn !== false;
+  var st = document.getElementById('soundTg'); if(st) st.classList.toggle('on', soundOn);
+  // Restore admin inputs if open
+  var ti = document.getElementById('tickerInput'); if(ti&&s.ticker) ti.value = s.ticker;
+  var mi = document.getElementById('motdInput');   if(mi&&s.motd)   mi.value = s.motd;
+  var mmi = document.getElementById('maintInput'); if(mmi&&s.maintMsg) mmi.value = s.maintMsg;
+  if (s.motdColor) {
+    document.querySelectorAll('.swatch').forEach(function(sw){ sw.classList.toggle('on', sw.dataset.col===s.motdColor); });
+  }
+}
+
+function saveSettings() {
+  var files = {};
+  files['stormtrack-settings.json'] = { content: JSON.stringify(appSettings) };
+  fetch('https://stormtrack-api.spuddyboy5.workers.dev/settings', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(appSettings)
+  }).catch(function(){});
+  // Also piggyback settings into the main data push
+  pushData();
+}
+
+function pushData() {
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ alerts: alerts, settings: appSettings })
+  }).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(){
+    isSyncing=false;
+    showSyncStatus('Synced ✓','var(--ok)');
+    setTimeout(function(){showSyncStatus('Live','var(--ok)');},2000);
+    setTimeout(pullAlerts,500);
+  }).catch(function(e){
+    isSyncing=false;
+    var pmsg=e.message||'Unknown';
+    showSyncStatus('Save failed: '+pmsg,'var(--dng)');
+    alert('Save failed: '+pmsg);
+  });
+}
+
+// Ticker
+function saveTicker() {
+  var v = document.getElementById('tickerInput').value.trim();
+  if (!v) return;
+  appSettings.ticker = v; appSettings.tickerOn = true;
+  applySettings(appSettings); saveSettings();
+}
+function hideTicker() { appSettings.tickerOn=false; applySettings(appSettings); saveSettings(); }
+
+// MOTD
+function selMotdCol(sw) {
+  motdColor = sw.dataset.col; appSettings.motdColor = motdColor;
+  document.querySelectorAll('.swatch').forEach(function(s){s.classList.remove('on');});
+  sw.classList.add('on');
+}
+function saveMotd() {
+  var v = document.getElementById('motdInput').value.trim();
+  if (!v) return;
+  appSettings.motd = v; appSettings.motdOn = true; appSettings.motdColor = motdColor;
+  applySettings(appSettings); saveSettings();
+}
+function hideMotd() { appSettings.motdOn=false; applySettings(appSettings); saveSettings(); }
+
+// Sound
+function togSound() { soundOn=!soundOn; appSettings.soundOn=soundOn; document.getElementById('soundTg').classList.toggle('on',soundOn); saveSettings(); }
+function testSound() { playAlertSound('warning'); }
+function playAlertSound(sev) {
+  if (!soundOn) return;
+  try {
+    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    function beep(freq, start, dur, vol) {
+      var o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=freq; o.type='square';
+      g.gain.setValueAtTime(vol||0.3, ctx.currentTime+start);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+start+dur);
+      o.start(ctx.currentTime+start); o.stop(ctx.currentTime+start+dur+0.05);
+    }
+    if (sev==='emergency') {
+      beep(880,0,.15,.4); beep(660,.2,.15,.4); beep(880,.4,.15,.4); beep(660,.6,.15,.4);
+      beep(880,.8,.15,.4); beep(660,1.0,.15,.4);
+    } else if (sev==='warning') {
+      beep(660,0,.2,.3); beep(880,.25,.2,.3); beep(660,.5,.2,.3);
+    } else {
+      beep(440,0,.3,.2); beep(550,.35,.3,.2);
+    }
+  } catch(e) {}
+}
+
+// Maintenance
+function enableMaint() {
+  var msg = document.getElementById('maintInput').value.trim() || 'StormTrack is temporarily unavailable';
+  appSettings.maintOn=true; appSettings.maintMsg=msg;
+  applySettings(appSettings); saveSettings();
+}
+function disableMaint() { appSettings.maintOn=false; applySettings(appSettings); saveSettings(); }
+
+// Clear all
+function clearAllAlerts() {
+  if (!confirm('Clear ALL alerts? This cannot be undone.')) return;
+  alerts=[]; save(); renderA(); renderH();
+  addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap); chkRed();
+}
+
 // ─── NOTIFICATIONS ───────────────────────────────────────
 function dismissNotifPrompt() {
   var p = document.getElementById('notifPrompt');
@@ -1447,7 +1794,28 @@ function togP() {
   }
 }
 function togR() { redOn=!redOn; document.getElementById('rTg').classList.toggle('on',redOn); }
-function selT(btn) { curType=btn.dataset.t; document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('sel');}); btn.classList.add('sel'); }
+function selSev(btn) {
+  curSeverity = btn.dataset.sev;
+  curType = curSeverity; // keep legacy in sync
+  document.querySelectorAll('#severityPills .tp').forEach(function(p){ p.classList.remove('sel'); });
+  btn.classList.add('sel');
+  // Update zone draw color
+  if (zCv) drawZone(zCv, zCtx, zPts, curSeverity, zCv.width, zCv.height);
+}
+function togEv(btn) {
+  var ev = btn.dataset.ev;
+  var idx = curEvents.indexOf(ev);
+  if (idx >= 0) { curEvents.splice(idx,1); btn.classList.remove('sel'); }
+  else { curEvents.push(ev); btn.classList.add('sel'); }
+}
+function selT(btn) { /* legacy — no-op */ }
+function resetTypePicker() {
+  curSeverity = 'warning'; curEvents = []; curType = 'warning';
+  document.querySelectorAll('#severityPills .tp').forEach(function(p){ p.classList.remove('sel'); });
+  var warnBtn = document.querySelector('#severityPills .tp[data-sev="warning"]');
+  if (warnBtn) warnBtn.classList.add('sel');
+  document.querySelectorAll('#eventPills .tp').forEach(function(p){ p.classList.remove('sel'); });
+}
 
 // ─── ALERTS ──────────────────────────────────────────────
 var editingId = null; // null = new alert, number = editing existing
@@ -1461,12 +1829,14 @@ function sendA() {
   var now=new Date(), sT=sv?new Date(sv):null, eT=ev?new Date(ev):null;
   var isSched=sT&&sT>now;
   var zll = zoneLatLngs.length > 2 ? JSON.parse(JSON.stringify(zoneLatLngs)) : [];
+  var sevNow = curSeverity || 'warning';
+  var evtsNow = curEvents.slice();
 
   if (editingId !== null) {
     // UPDATE existing alert
     var a = alerts.find(function(x){ return x.id === editingId; });
     if (a) {
-      a.type = curType; a.title = title; a.msg = msg;
+      a.type = sevNow; a.severity = sevNow; a.events = evtsNow; a.title = title; a.msg = msg;
       a.redAlert = redOn; a.push = pushOn;
       if (sT) a.sendAt = sT;
       if (eT) { a.expires = eT; if(expT[a.id]) clearTimeout(expT[a.id]); if(eT>now) expT[a.id]=setTimeout(function(){expA(a.id);},eT-now); }
@@ -1478,7 +1848,7 @@ function sendA() {
   } else {
     // NEW alert
     var id = Date.now();
-    var a = { id:id, type:curType, title:title, msg:msg, push:pushOn, redAlert:redOn,
+    var a = { id:id, type:sevNow, severity:sevNow, events:evtsNow, title:title, msg:msg, push:pushOn, redAlert:redOn,
       sendAt:sT, expires:eT, created:now, active:!isSched, scheduled:isSched, expired:false,
       zoneLatLngs:zll };
     alerts.unshift(a);
@@ -1489,6 +1859,7 @@ function sendA() {
 
   document.getElementById('aT').value=''; document.getElementById('aM').value='';
   document.getElementById('aSd').value=''; document.getElementById('aEx').value='';
+  resetTypePicker();
   var ok=document.getElementById('sOk'); ok.classList.add('on'); setTimeout(function(){ok.classList.remove('on');},2500);
   save(); renderH(); renderA();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
@@ -1505,11 +1876,17 @@ function editA(id) {
   document.getElementById('aM').value = a.msg;
   if (a.sendAt) { try { document.getElementById('aSd').value = new Date(a.sendAt).toISOString().slice(0,16); } catch(e){} }
   if (a.expires) { try { document.getElementById('aEx').value = new Date(a.expires).toISOString().slice(0,16); } catch(e){} }
-  // Set type pill
-  curType = a.type;
-  document.querySelectorAll('.tp').forEach(function(p){ p.classList.remove('sel'); });
-  var pill = document.querySelector('.tp[data-t="'+a.type+'"]');
-  if (pill) pill.classList.add('sel');
+  // Restore severity + events
+  resetTypePicker();
+  curSeverity = getAlertSev(a); curType = curSeverity;
+  curEvents = getAlertEvts(a).slice();
+  document.querySelectorAll('#severityPills .tp').forEach(function(p){ p.classList.remove('sel'); });
+  var sevBtn = document.querySelector('#severityPills .tp[data-sev="'+curSeverity+'"]');
+  if (sevBtn) sevBtn.classList.add('sel');
+  curEvents.forEach(function(ev) {
+    var evBtn = document.querySelector('#eventPills .tp[data-ev="'+ev+'"]');
+    if (evBtn) evBtn.classList.add('sel');
+  });
   // Set toggles
   redOn = a.redAlert; pushOn = a.push;
   document.getElementById('rTg').classList.toggle('on', redOn);
@@ -1587,7 +1964,8 @@ function delA(id) {
 }
 function chkRed() {
   var hasActiveLocal = alerts.some(function(a) {
-    return a.active && !a.expired && DT.indexOf(a.type) >= 0 && a.redAlert && alertAppliesToCity(a);
+    var sev = getAlertSev(a);
+    return a.active && !a.expired && (sev==='emergency'||sev==='warning'||DT.indexOf(a.type)>=0) && a.redAlert && alertAppliesToCity(a);
   });
   if (hasActiveLocal) {
     document.body.classList.add('red');
@@ -1696,7 +2074,7 @@ function renderH() {
   var c=document.getElementById('hC'); if(!c) return;
   if(!alerts.length){c.innerHTML='<div class="he">No alerts yet</div>';return;}
   c.innerHTML=alerts.map(function(a){
-    return '<div class="hi2"><span class="hb '+a.type+'">'+LBL[a.type]+'</span>' +
+    return '<div class="hi2"><span class="hb '+getAlertSev(a)+'" style="background:'+getAlertColor(a)+'33;color:'+getAlertColor(a)+';border:1px solid '+getAlertColor(a)+'55">'+LBL[a.type]+'</span>' +
       '<div class="hbd"><div class="hti">'+a.title +
         (a.scheduled?'<span class="bsm bsc">Scheduled</span>':'') +
         (a.expired?'<span class="bsm bex">Expired</span>':'') +
