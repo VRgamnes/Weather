@@ -254,8 +254,10 @@ input,textarea,select{font-size:16px!important}
 <nav class="nav">
   <!-- Row 1: logo + tab buttons -->
   <div class="nav-row1">
-    <div class="logo">⛈ StormTrack</div>
-    <div class="desk-only" style="font-size:11px;color:var(--mut)">Weather Alert System</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="logo">⛈ StormTrack</div>
+      <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
+    </div>
     <div class="tabs">
       <button class="tab on" id="tW" onclick="goW()">🌤 Weather</button>
       <button class="tab" id="tA" onclick="goAdmin()">⚙️ Admin</button>
@@ -393,19 +395,20 @@ window.onerror = function(msg,src,line,col,err){
 };
 </script>
 <script>
+// ─── JSONBIN CONFIG ───────────────────────────────────────
+var BIN_ID  = '69b7f859aa77b81da9ec620a';
+var BIN_KEY = '$2a$10$Lpdw3HBUzIFG0Ml9CLk0JuYK0WXjLNPVLzGyX0QHpgoR0BuosLWai';
+var BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
+
 // ─── STATE ────────────────────────────────────────────────
 var PIN = localStorage.getItem('st_pin') || '1234';
 var pinE = '', admOpen = false, pushOn = false, redOn = true, curType = 'warning';
 var alerts = [];
-try { alerts = JSON.parse(localStorage.getItem('st_als') || '[]'); } catch(e) {}
-alerts.forEach(function(a) {
-  if (a.sendAt) a.sendAt = new Date(a.sendAt);
-  if (a.expires) a.expires = new Date(a.expires);
-  if (a.created) a.created = new Date(a.created);
-});
 var wData = null, wLayer = 'rain';
 var zTool = 'draw', zoneLatLngs = [], adminDrawing = false;
 var expT = {};
+var isSyncing = false;
+var lastBinVersion = null;
 
 var ICO  = {warning:'⚠️',danger:'🚨',info:'ℹ️',tornado:'🌪️',flood:'🌊',heat:'🌡️',snow:'❄️',fog:'🌫️',freeze:'🧊'};
 var LBL  = {warning:'Warning',danger:'Danger',info:'Advisory',tornado:'Tornado',flood:'Flood',heat:'Heat',snow:'Snow',fog:'Fog',freeze:'Freeze'};
@@ -413,7 +416,84 @@ var TCOL = {warning:'#ffb74d',danger:'#ef5350',info:'#4fc3f7',tornado:'#ce93d8',
 var FCOL = {warning:'rgba(255,143,0,',danger:'rgba(229,57,53,',info:'rgba(79,195,247,',tornado:'rgba(156,39,176,',flood:'rgba(21,101,192,',heat:'rgba(216,67,21,',snow:'rgba(120,144,156,',fog:'rgba(96,125,139,',freeze:'rgba(2,136,209,'};
 var DT   = ['danger','tornado','flood','heat'];
 
-function save() { try { localStorage.setItem('st_als', JSON.stringify(alerts)); } catch(e) {} }
+// ─── JSONBIN SYNC ─────────────────────────────────────────
+function showSyncStatus(msg, color) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color || 'var(--mut)';
+}
+
+function pushAlerts() {
+  // Write alerts array to JSONBin
+  isSyncing = true;
+  showSyncStatus('Saving...', 'var(--a)');
+  fetch(BIN_URL, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': BIN_KEY,
+      'X-Bin-Versioning': 'false'
+    },
+    body: JSON.stringify({ alerts: alerts })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    isSyncing = false;
+    showSyncStatus('Synced ✓', 'var(--ok)');
+    setTimeout(function(){ showSyncStatus('Live', 'var(--ok)'); }, 2000);
+  })
+  .catch(function(e) {
+    isSyncing = false;
+    showSyncStatus('Sync error', 'var(--dng)');
+    console.error('JSONBin push error:', e);
+  });
+}
+
+function pullAlerts() {
+  // Read alerts from JSONBin — called on load and every 30s for all users
+  fetch(BIN_URL + '/latest', {
+    headers: { 'X-Master-Key': BIN_KEY, 'X-Bin-Meta': 'false' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var remote = (data && data.alerts) ? data.alerts : [];
+    // Parse dates back
+    remote.forEach(function(a) {
+      if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
+      if (a.expires) a.expires = new Date(a.expires);
+      if (a.created) a.created = new Date(a.created);
+    });
+    alerts = remote;
+    // Restart expiry timers
+    Object.keys(expT).forEach(function(k){ clearTimeout(expT[k]); });
+    expT = {};
+    var now = new Date();
+    alerts.forEach(function(a) {
+      if (a.scheduled && a.sendAt && new Date(a.sendAt) > now)
+        setTimeout(function(){ actA(a.id); }, new Date(a.sendAt) - now);
+      if (a.active && !a.expired && a.expires && new Date(a.expires) > now)
+        expT[a.id] = setTimeout(function(){ expA(a.id); }, new Date(a.expires) - now);
+    });
+    renderA();
+    renderH();
+    chkRed();
+    addAlertZonesToMap(wMap);
+    if (aMap) addAlertZonesToMap(aMap);
+    showSyncStatus('Live', 'var(--ok)');
+  })
+  .catch(function(e) {
+    showSyncStatus('Offline', 'var(--dng)');
+    console.error('JSONBin pull error:', e);
+  });
+}
+
+// save() now pushes to JSONBin — called by admin actions
+function save() {
+  pushAlerts();
+  // Also keep local backup
+  try { localStorage.setItem('st_als_bak', JSON.stringify(alerts)); } catch(e) {}
+}
 
 // ─── LEAFLET BASE TILE URL ────────────────────────────────
 // OpenStreetMap tiles — free, no key
@@ -1259,13 +1339,9 @@ function renderWx(d) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────
-alerts.forEach(function(a){
-  var now=new Date();
-  if(a.scheduled&&a.sendAt&&new Date(a.sendAt)>now) setTimeout(function(){actA(a.id);},new Date(a.sendAt)-now);
-  if(a.active&&!a.expired&&a.expires&&new Date(a.expires)>now) expT[a.id]=setTimeout(function(){expA(a.id);},new Date(a.expires)-now);
-  if(a.active&&!a.expired&&DT.indexOf(a.type)>=0&&a.redAlert) document.body.classList.add('red');
-});
-renderH();
+// Poll JSONBin every 30 seconds so all users see new alerts live
+setInterval(pullAlerts, 30000);
+// Weather auto-refresh every 10 min
 setInterval(function(){if(wData)loadWx(document.getElementById('locIn').value.trim()||'New York');},600000);
 
 // Init map and load weather after everything is ready
@@ -1274,10 +1350,12 @@ window.addEventListener('resize', function() {
   if (aMap) aMap.invalidateSize();
 });
 window.addEventListener('load', function() {
-  // Start on weather page — ensure admin map is hidden
   document.getElementById('adminMap').style.display = 'none';
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
   loadWx('New York');
+  // Pull live alerts from JSONBin on startup
+  showSyncStatus('Connecting...', 'var(--a)');
+  pullAlerts();
 });
 </script>
 </div><!-- /main-content -->
