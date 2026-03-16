@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<meta name="theme-color" content="#0a1628"/>
+<link rel="manifest" href="./manifest.json"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="StormTrack"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no"/>
 <title>StormTrack</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
@@ -398,7 +403,7 @@ window.onerror = function(msg,src,line,col,err){
 <script>
 // ─── GITHUB GIST CONFIG ──────────────────────────────────
 var GIST_ID    = '16b357d8fc9917dc1e37f8825998cf8c';
-var GIST_TOKEN = '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'; // replace if regenerated
+var GIST_TOKEN = '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'; // replace if regenerated
 var GIST_FILE  = 'stormtrack-alerts.json';
 var GIST_URL   = 'https://api.github.com/gists/' + GIST_ID;
 var GIST_RAW   = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE;
@@ -432,8 +437,7 @@ function pushAlerts() {
   showSyncStatus('Saving...', 'var(--a)');
   var files = {};
   files[GIST_FILE] = { content: JSON.stringify({ alerts: alerts }) };
-  var proxyPush = 'https://corsproxy.io/?' + encodeURIComponent(GIST_URL);
-  fetch(proxyPush, {
+  fetch(GIST_URL, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -458,15 +462,23 @@ function pushAlerts() {
   });
 }
 
-function pullAlerts() {
-  // Fetch via CORS proxy — bypasses GitHub API CORS restrictions
-  var rawUrl = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE;
-  var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(rawUrl) + '&_=' + Date.now();
-  fetch(proxyUrl)
-  .then(function(r) {
+function fetchFromUrl(url, opts) {
+  return fetch(url, opts).then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.text();
-  })
+  });
+}
+
+function pullAlerts() {
+  var ts = Date.now();
+  var rawUrl  = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE + '?t=' + ts;
+  var proxy1  = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE) + '&t=' + ts;
+  var proxy2  = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE);
+
+  // Try raw URL first, fall back to proxies
+  fetchFromUrl(rawUrl, { cache: 'no-store', mode: 'cors' })
+    .catch(function() { return fetchFromUrl(proxy1, {}); })
+    .catch(function() { return fetchFromUrl(proxy2, {}); })
   .then(function(text) {
     var parsed;
     try { parsed = JSON.parse(text); } catch(e) { parsed = { alerts: [] }; }
@@ -521,6 +533,12 @@ function pullAlerts() {
 function save() {
   pushAlerts();
   try { localStorage.setItem('st_als_bak', JSON.stringify(alerts)); } catch(e) {}
+  // Tell service worker about alerts for background scheduling
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SCHEDULE_CHECK', alerts: alerts
+    });
+  }
 }
 
 // ─── LEAFLET BASE TILE URL ────────────────────────────────
@@ -881,6 +899,12 @@ function setWLayer(type, btn) {
 
 function updateUserMarker(lat, lon, cityName) {
   userLat = lat; userLon = lon;
+  // Tell service worker the user's location for background zone checks
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'STORE_LOCATION', lat: lat, lon: lon
+    });
+  }
   if (!wMap) return;
   if (userMarker) wMap.removeLayer(userMarker);
   var icon = L.divIcon({
@@ -1624,11 +1648,40 @@ window.addEventListener('load', function() {
   }
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
-  // Ask for notification permission on startup (3s delay so it feels natural)
-  if ('Notification' in window && Notification.permission === 'default') {
-    setTimeout(function() {
-      Notification.requestPermission();
-    }, 3000);
+
+  // ── SERVICE WORKER + NOTIFICATIONS ──────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(function(reg) {
+      console.log('SW registered:', reg.scope);
+      // Request notification permission immediately after SW registers
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(function(result) {
+          if (result === 'granted') {
+            // Show a welcome notification so user knows it worked
+            reg.showNotification('⛈ StormTrack', {
+              body: 'Notifications enabled! You will be alerted for weather in your area.',
+              icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png'
+            });
+          }
+        });
+      }
+      // Register periodic background sync if supported
+      if ('periodicSync' in reg) {
+        reg.periodicSync.register('check-alerts', { minInterval: 60000 })
+          .catch(function(e) { console.log('Periodic sync not available:', e); });
+      }
+    }).catch(function(e) {
+      console.log('SW registration failed:', e);
+      // Fallback — still ask for notifications without SW
+      if ('Notification' in window && Notification.permission === 'default') {
+        setTimeout(function() { Notification.requestPermission(); }, 2000);
+      }
+    });
+  } else {
+    // No SW support — ask for notifications anyway
+    if ('Notification' in window && Notification.permission === 'default') {
+      setTimeout(function() { Notification.requestPermission(); }, 2000);
+    }
   }
 });
 </script>
