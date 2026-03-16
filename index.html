@@ -432,34 +432,46 @@ function showSyncStatus(msg, color) {
 }
 
 function pushAlerts() {
-  // Write alerts to Gist via proxy — admin only
   isSyncing = true;
   showSyncStatus('Saving...', 'var(--a)');
   var files = {};
   files[GIST_FILE] = { content: JSON.stringify({ alerts: alerts }) };
-  fetch(GIST_URL, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'token ' + GIST_TOKEN,
-      'Accept': 'application/vnd.github.v3+json'
-    },
-    body: JSON.stringify({ files: files })
-  })
-  .then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  })
-  .then(function() {
-    isSyncing = false;
-    showSyncStatus('Synced ✓', 'var(--ok)');
-    setTimeout(function(){ showSyncStatus('Live', 'var(--ok)'); }, 2000);
-  })
-  .catch(function(e) {
-    isSyncing = false;
-    showSyncStatus('Save failed', 'var(--dng)');
-    console.error('Gist push error:', e);
-  });
+  var body = JSON.stringify({ files: files });
+
+  // Try direct API first, fall back to two proxies
+  var directUrl  = GIST_URL;
+  var proxy1Url  = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(GIST_URL);
+  var proxy2Url  = 'https://corsproxy.io/?' + encodeURIComponent(GIST_URL);
+
+  var headers = {
+    'Content-Type': 'application/json',
+    'Authorization': 'token ' + GIST_TOKEN,
+    'Accept': 'application/vnd.github.v3+json'
+  };
+
+  function tryPatch(url) {
+    return fetch(url, { method: 'PATCH', headers: headers, body: body })
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      });
+  }
+
+  tryPatch(directUrl)
+    .catch(function() { return tryPatch(proxy1Url); })
+    .catch(function() { return tryPatch(proxy2Url); })
+    .then(function() {
+      isSyncing = false;
+      showSyncStatus('Synced ✓', 'var(--ok)');
+      setTimeout(function(){ showSyncStatus('Live', 'var(--ok)'); }, 2000);
+      // Pull immediately so all users see the update
+      setTimeout(pullAlerts, 1000);
+    })
+    .catch(function(e) {
+      isSyncing = false;
+      showSyncStatus('Save failed — check connection', 'var(--dng)');
+      console.error('Gist push error:', e);
+    });
 }
 
 function fetchFromUrl(url, opts) {
@@ -1136,6 +1148,45 @@ function chgPin() {
   fb.className='pcf ok'; fb.textContent='PIN updated!'; setTimeout(function(){fb.textContent='';},3000);
 }
 
+// ─── NOTIFICATIONS ───────────────────────────────────────
+function enableNotifs() {
+  if (!('Notification' in window)) {
+    alert('Notifications not supported.\n\nOn iPhone: Add StormTrack to your Home Screen first (Share → Add to Home Screen), then try again.');
+    return;
+  }
+  Notification.requestPermission().then(function(result) {
+    var banner = document.getElementById('notifBanner');
+    if (result === 'granted') {
+      if (banner) banner.style.display = 'none';
+      localStorage.setItem('st_notif_asked', '1');
+      try {
+        new Notification('⛈ StormTrack', {
+          body: 'Notifications enabled! You will be alerted for weather in your area.',
+          icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png'
+        });
+      } catch(e) {}
+      // Tell SW notifications are on
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'NOTIF_GRANTED' });
+      }
+    } else if (result === 'denied') {
+      if (banner) banner.style.display = 'none';
+      localStorage.setItem('st_notif_asked', 'denied');
+      alert('Notifications blocked.\n\nTo fix: tap the lock icon in your browser address bar → Notifications → Allow, then reload.');
+    }
+  });
+}
+
+function checkShowNotifBanner() {
+  var banner = document.getElementById('notifBanner');
+  if (!banner) return;
+  if (!('Notification' in window)) { banner.style.display = 'none'; return; }
+  if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
+  if (localStorage.getItem('st_notif_asked') === 'denied') { banner.style.display = 'none'; return; }
+  // Show the banner — nicer than auto-requesting
+  banner.style.display = 'flex';
+}
+
 // ─── TOGGLES ─────────────────────────────────────────────
 function togP() {
   if (pushOn) {
@@ -1588,6 +1639,7 @@ function renderWx(d) {
 
   document.getElementById('wC').innerHTML=html;
   renderA();
+  checkShowNotifBanner();
 }
 
 // ─── INIT ─────────────────────────────────────────────────
@@ -1653,18 +1705,8 @@ window.addEventListener('load', function() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').then(function(reg) {
       console.log('SW registered:', reg.scope);
-      // Request notification permission immediately after SW registers
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().then(function(result) {
-          if (result === 'granted') {
-            // Show a welcome notification so user knows it worked
-            reg.showNotification('⛈ StormTrack', {
-              body: 'Notifications enabled! You will be alerted for weather in your area.',
-              icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png'
-            });
-          }
-        });
-      }
+      // Banner handles permission — just check if we should show it
+      checkShowNotifBanner();
       // Register periodic background sync if supported
       if ('periodicSync' in reg) {
         reg.periodicSync.register('check-alerts', { minInterval: 60000 })
