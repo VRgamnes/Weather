@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no"/>
 <title>StormTrack</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
@@ -10,12 +10,54 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--sky:#0a1628;--a:#4fc3f7;--a2:#81d4fa;--warn:#ff8f00;--dng:#e53935;--ok:#43a047;--txt:#e8f4fd;--mut:#7eb8d4;--card:rgba(255,255,255,.07);--ch:rgba(255,255,255,.13);--bdr:rgba(79,195,247,.2)}
 html,body{min-height:100vh;background:var(--sky);color:var(--txt);font-family:'DM Sans',sans-serif}
+
+/* ── RESPONSIVE LAYOUT ─────────────────────────────────── */
+/* Mobile-first, expands to desktop sidebar layout at 768px */
+@media(min-width:768px){
+  .desk-only{display:block!important}
+  .app-shell{display:flex;flex-direction:row;min-height:100vh}
+  /* Sidebar nav on desktop */
+  .nav{flex-direction:column;width:220px;min-height:100vh;padding:20px 14px;border-right:1px solid var(--bdr);border-bottom:none;position:fixed;top:0;left:0;z-index:1000;overflow-y:auto;gap:16px;flex-wrap:nowrap;align-items:flex-start}
+  .logo{font-size:26px;margin-bottom:4px}
+  .nm{max-width:100%;width:100%;flex-direction:column}
+  .li{width:100%}
+  .tabs{flex-direction:column;width:100%;gap:6px}
+  .tab{width:100%;text-align:left;padding:10px 14px;border-radius:10px;font-size:13px}
+  /* Main content pushed right of sidebar */
+  .main-content{margin-left:220px;flex:1;min-width:0}
+  /* Wider map */
+  #usMap{height:420px}
+  /* Wider cards */
+  .sg{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* Admin two-column layout */
+  .admin-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .admin-cols .ac{margin-bottom:0}
+  /* Bigger text on desktop */
+  .bt{font-size:100px}
+  .hero{padding:28px 0 16px}
+  /* Wider hourly scroll */
+  .hs{flex-wrap:wrap;overflow-x:visible}
+  .hc{min-width:64px}
+  /* Wider modals */
+  .mb{max-width:600px}
+  /* Admin map taller */
+  #adminMap{height:360px}
+}
+@media(min-width:1100px){
+  .nav{width:260px}
+  .main-content{margin-left:260px}
+  .sg{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #usMap{height:500px}
+  #adminMap{height:420px}
+}
 body.red{animation:rp 2s infinite}
+body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
+*{-webkit-tap-highlight-color:transparent}
 @keyframes rp{0%,100%{background:#3a0000}50%{background:#5a0000}}
 @keyframes si{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
 
 /* NAV */
-.nav{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.4);border-bottom:1px solid var(--bdr);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:1000}
+.nav{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.4);border-bottom:1px solid var(--bdr);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:1000;overflow-y:auto}
 .logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--a)}
 .nm{flex:1;min-width:110px;max-width:230px;display:flex;gap:5px}
 .li{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--bdr);border-radius:20px;padding:7px 12px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none}
@@ -44,7 +86,7 @@ body.red{animation:rp 2s infinite}
 .leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 
 /* WEATHER CONTENT */
-.wcontent{padding:0 13px}
+.wcontent{padding:0 13px;box-sizing:border-box}
 .hero{text-align:center;padding:18px 0 11px}
 .cn{font-size:17px;font-weight:500}.cs{font-size:12px;color:var(--mut);margin-bottom:7px}
 .hico{font-size:58px;margin:3px 0;line-height:1.1}
@@ -192,12 +234,50 @@ body.red{animation:rp 2s infinite}
 .lpop-msg{font-size:12px;color:var(--mut);line-height:1.5}
 
 @media(max-width:400px){.bt{font-size:70px}.tr2{flex-direction:column}}
+
+/* ── RESPONSIVE PC / MOBILE ──────────────────────────── */
+@media(min-width:768px){
+  /* PC: two-column layout */
+  body{max-width:1200px;margin:0 auto}
+  .nav{padding:12px 24px}
+  .nm{max-width:320px}
+  #usMap{height:480px}
+  .wcontent{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;padding:0 24px}
+  .hero{grid-column:1/-1;padding:24px 0 16px}
+  .asec{grid-column:1/-1}
+  .rsec{grid-column:1/-1}
+  .sg{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hourly-section,.hscroll,.hs-wrap{grid-column:1/-1}
+  .fsec{grid-column:1/-1}
+  .sr2{grid-column:1/-1}
+  .apg{max-width:900px;margin:0 auto;padding:20px 24px 40px}
+  .apg .ac{padding:20px}
+  #adminMap{height:380px}
+  .pinpg{padding:60px 20px}
+  .mw{padding:20px 24px}
+  .mb{max-width:580px}
+  #modZoneMap{height:220px}
+  .map-controls{padding:10px 24px}
+}
+@media(min-width:1024px){
+  #usMap{height:540px}
+  .sg{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #adminMap{height:440px}
+}
+
+/* Prevent text selection during map drawing on mobile */
+#adminMap{-webkit-user-select:none;user-select:none}
+/* Smoother touch on all interactive elements */
+button,.tab,.pk,.tp,.mc-btn,.zb,.go,.sb,.pcb,.lock-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* Stop iOS from zooming on input focus */
+input,textarea,select{font-size:16px!important}
 </style>
 </head>
 <body>
-
+<div class="app-shell">
 <nav class="nav">
   <div class="logo">⛈ StormTrack</div>
+  <div style="font-size:11px;color:var(--mut);margin-top:-10px;display:none" class="desk-only">Weather Alert System</div>
   <div class="nm">
     <input class="li" id="locIn" placeholder="City..." value="New York"/>
     <button class="go" onclick="doSearch()">Go</button>
@@ -207,7 +287,7 @@ body.red{animation:rp 2s infinite}
     <button class="tab" id="tA" onclick="goAdmin()">Admin</button>
   </div>
 </nav>
-
+<div class="main-content">
 <!-- WEATHER PAGE -->
 <div class="pg on" id="wPg">
   <!-- MAP SECTION -->
@@ -1161,10 +1241,10 @@ function renderWx(d) {
     '<div class="sc"><div class="sl">Visibility</div><div class="sv">'+vis+'<span class="su"> mi</span></div></div>'+
     '<div class="sc"><div class="sl">Precip</div><div class="sv">'+(cur.precipitation?cur.precipitation.toFixed(2):'0.00')+'<span class="su"> in</span></div></div>'+
     '</div>'+
-    '<div class="st">Hourly Forecast</div>'+
+    '<div class="hs-wrap"><div class="st">Hourly Forecast</div>'+
     '<div class="hs">';
   for(var h=0;h<hSlice.length;h++){var idx=hs+h;html+='<div class="hc"><div class="ht">'+(h===0?'Now':new Date(hSlice[h]).toLocaleTimeString([],{hour:'numeric',hour12:true}))+'</div><div class="hico2">'+wIco(hourly.weather_code[idx],hourly.is_day[idx])+'</div><div class="htp">'+Math.round(hourly.temperature_2m[idx])+'°</div><div class="hpop">'+(hourly.precipitation_probability[idx]>10?hourly.precipitation_probability[idx]+'%':'')+'</div></div>';}
-  html+='</div><div class="fsec"><div class="st">7-Day Forecast</div>';
+  html+='</div></div><div class="fsec"><div class="st">7-Day Forecast</div>';
   for(var f=0;f<daily.time.length;f++){html+='<div class="fr"><div class="fd">'+(f===0?'Today':days[new Date(daily.time[f]+'T12:00:00').getDay()])+'</div><div class="fdsc">'+wDsc(daily.weather_code[f])+'</div><div class="fic">'+wIco(daily.weather_code[f],1)+'</div><div class="frg"><span class="fh">'+Math.round(daily.temperature_2m_max[f])+'°</span> <span class="flo">/ '+Math.round(daily.temperature_2m_min[f])+'°</span></div></div>';}
   html+='</div>'+
     '<div class="sr2">'+
@@ -1188,10 +1268,16 @@ renderH();
 setInterval(function(){if(wData)loadWx(document.getElementById('locIn').value.trim()||'New York');},600000);
 
 // Init map and load weather after everything is ready
+window.addEventListener('resize', function() {
+  if (wMap) wMap.invalidateSize();
+  if (aMap) aMap.invalidateSize();
+});
 window.addEventListener('load', function() {
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
   loadWx('New York');
 });
 </script>
+</div><!-- /main-content -->
+</div><!-- /app-shell -->
 </body>
 </html>
