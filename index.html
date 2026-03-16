@@ -965,20 +965,77 @@ function delA(id) {
   alerts=alerts.filter(function(a){return a.id!==id;}); chkRed(); save(); renderA(); renderH();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
 }
-function chkRed() { if(!alerts.some(function(a){return a.active&&!a.expired&&DT.indexOf(a.type)>=0&&a.redAlert;})) document.body.classList.remove('red'); }
+function chkRed() {
+  var hasActiveLocal = alerts.some(function(a) {
+    return a.active && !a.expired && DT.indexOf(a.type) >= 0 && a.redAlert && alertAppliesToCity(a);
+  });
+  if (hasActiveLocal) {
+    document.body.classList.add('red');
+  } else {
+    document.body.classList.remove('red');
+  }
+}
 function doPush(a) { if('Notification'in window&&Notification.permission==='granted') new Notification('⛈ StormTrack: '+a.title,{body:a.msg}); }
 function fmt(d) { if(!d) return'—'; return new Date(d).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
 
+// ── ZONE CHECKING ────────────────────────────────────────
+// Ray-casting point-in-polygon (works with lat/lon coords directly)
+function pointInPolygon(lat, lon, polygon) {
+  var inside = false;
+  var n = polygon.length;
+  for (var i = 0, j = n - 1; i < n; j = i++) {
+    var xi = polygon[i][0], yi = polygon[i][1];
+    var xj = polygon[j][0], yj = polygon[j][1];
+    var intersect = ((yi > lon) !== (yj > lon)) &&
+      (lat < (xj - xi) * (lon - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Haversine distance in miles between two lat/lon points
+function distanceMiles(lat1, lon1, lat2, lon2) {
+  var R = 3958.8;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Check if a point is inside OR within bufferMiles of a polygon
+function isNearZone(lat, lon, polygon, bufferMiles) {
+  if (pointInPolygon(lat, lon, polygon)) return true;
+  // Check distance to each polygon edge
+  for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    var d = distanceMiles(lat, lon, polygon[i][0], polygon[i][1]);
+    if (d <= bufferMiles) return true;
+  }
+  return false;
+}
+
+// Returns true if alert should show for current city
+// No zone = show to everyone. Zone = only show if city is inside or within 30 miles
+function alertAppliesToCity(a) {
+  if (!a.zoneLatLngs || a.zoneLatLngs.length < 3) return true; // no zone = everyone
+  if (!userLat || !userLon) return true; // no location known yet = show it
+  return isNearZone(userLat, userLon, a.zoneLatLngs, 10);
+}
+
 function renderA() {
   var c=document.getElementById('alertsContainer'); if(!c) return;
-  var act=alerts.filter(function(a){return a.active&&!a.expired;});
-  if(!act.length){c.innerHTML='<div class="na">No active alerts</div>';return;}
+  var act=alerts.filter(function(a){ return a.active && !a.expired && alertAppliesToCity(a); });
+  if(!act.length){c.innerHTML='<div class="na">No active alerts for '+( wData ? wData.name : 'your area')+'</div>';return;}
   c.innerHTML=act.map(function(a){
+    var hasZone = a.zoneLatLngs && a.zoneLatLngs.length > 2;
+    var inZone  = hasZone ? pointInPolygon(userLat, userLon, a.zoneLatLngs) : false;
+    var nearTag = hasZone ? (inZone ? ' · <b>In zone</b>' : ' · Near zone') : '';
     return '<div class="ab '+a.type+'" onclick="openMod('+a.id+')">' +
       '<div class="ai">'+ICO[a.type]+'</div>' +
       '<div style="flex:1;min-width:0"><div class="at">'+a.title+'</div>' +
       '<div class="ap">'+a.msg+'</div>' +
-      '<div class="atap">Tap for details'+(a.zoneLatLngs&&a.zoneLatLngs.length>2?' · Zone on map':'')+'</div></div></div>';
+      '<div class="atap">Tap for details'+nearTag+'</div></div></div>';
   }).join('');
 }
 function renderH() {
@@ -1066,7 +1123,7 @@ function loadWx(city) {
         '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=7';
       return fetch(url)
         .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
-        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};renderWx(wData);setLastUpdated();});
+        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};renderWx(wData);setLastUpdated();chkRed();});
     })
     .catch(function(e){
       document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Check your connection and try again.</small></div>';
