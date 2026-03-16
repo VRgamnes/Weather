@@ -494,11 +494,9 @@ input,textarea,select{font-size:16px!important}
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
     <button class="mc-btn" id="lightningBtn" onclick="toggleLightningBtn(this)">⚡ Lightning</button>
-    <button class="mc-btn" id="mapClickBtn" onclick="enableMapClickBtn(this)" title="Tap map to get weather">🎯 Tap</button>
-    <button class="mc-btn" id="wLayerLight" onclick="setWLayer('lightning',this)">⚡ Lightning</button>
-    <button class="mc-btn" onclick="toggleCityLabels&&toggleCityLabels()">🏙 Cities</button>
-    <button class="mc-btn" onclick="dropStormPin()">📍 Storm Pin</button>
-    <button class="mc-btn" id="wLayerLight" onclick="setWLayer('lightning',this)">⚡ Lightning</button>
+    <button class="mc-btn" id="cityLabelsBtn" onclick="toggleCityLabels(this)">🏙 Cities</button>
+    <button class="mc-btn" id="stormPinBtn" onclick="startStormPin()">📍 Track Storm</button>
+    <button class="mc-btn" id="mapClickBtn" onclick="enableMapClickBtn(this)">🎯 Tap Location</button>
     <div class="map-legend">
       <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>You</div>
       <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert</div>
@@ -1965,6 +1963,68 @@ function dropStormPin(lat,lon,label){
 
 // ── LIGHTNING LAYER ──────────────────────────────────────
 var lightningLayer=null, lightningMarkers=[];
+function toggleCityLabels(btn) {
+  var el = document.getElementById('cityLabelsLayer');
+  if (el) {
+    // Already added — remove it
+    wMap.removeLayer(el._layer);
+    el._layer = null;
+    document.getElementById('cityLabelsLayer').remove();
+    if (btn) btn.classList.remove('on');
+    return;
+  }
+  // Add city label layer
+  var layer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 19, zIndex: 10, opacity: 0.9
+  }).addTo(wMap);
+  // Store reference
+  var marker = document.createElement('div');
+  marker.id = 'cityLabelsLayer';
+  marker._layer = layer;
+  document.body.appendChild(marker);
+  if (btn) btn.classList.add('on');
+}
+
+var stormPinMode = false;
+function startStormPin() {
+  var btn = document.getElementById('stormPinBtn');
+  if (stormPinMode) {
+    // Cancel
+    stormPinMode = false;
+    if (btn) btn.classList.remove('on');
+    if (wMap) { wMap.off('click', placeStormPin); wMap.getContainer().style.cursor = ''; }
+    return;
+  }
+  stormPinMode = true;
+  if (btn) btn.classList.add('on');
+  if (wMap) { wMap.getContainer().style.cursor = 'crosshair'; wMap.once('click', placeStormPin); }
+}
+
+function removeStormPin(id) {
+  var idx = stormPins.findIndex(function(p){ return p.id === id; });
+  if (idx >= 0) { if(wMap) wMap.removeLayer(stormPins[idx].marker); stormPins.splice(idx,1); }
+}
+
+function placeStormPin(e) {
+  stormPinMode = false;
+  var btn = document.getElementById('stormPinBtn');
+  if (btn) btn.classList.remove('on');
+  if (wMap) wMap.getContainer().style.cursor = '';
+  var lat = e.latlng.lat.toFixed(4), lon = e.latlng.lng.toFixed(4);
+  var icon = L.divIcon({
+    html: '<div style="font-size:24px;filter:drop-shadow(0 0 6px rgba(229,57,53,.9))">🌪️</div>',
+    className: '', iconSize: [28,28], iconAnchor: [14,14]
+  });
+  var marker = L.marker([e.latlng.lat, e.latlng.lng], { icon: icon }).addTo(wMap);
+  var pid = Date.now();
+  stormPins.push({ id: pid, marker: marker });
+  var popHtml = '<div class="lpop-title">🌪️ Storm Pin</div>' +
+    '<div style="font-size:12px;color:#7eb8d4;margin-bottom:8px">' + lat + ', ' + lon + '</div>' +
+    '<button style="font-size:12px;color:#4fc3f7;background:none;border:none;cursor:pointer;padding:0;display:block;margin-bottom:4px" onclick="loadWx(\'' + lat + ',' + lon + '\')">📍 Get weather here</button>' +
+    '<button style="font-size:12px;color:#ef5350;background:none;border:none;cursor:pointer;padding:0" onclick="removeStormPin(' + pid + ')">✕ Remove pin</button>';
+  marker.bindPopup(popHtml).openPopup();
+}
+
 function toggleLightningBtn(btn) {
   if (lightningMarkers.length > 0) {
     clearLightningLayer();
