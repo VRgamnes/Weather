@@ -214,8 +214,8 @@ body.red{animation:rp 2s infinite}
   <div class="map-controls" id="wMapControls">
     <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Radar</button>
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
-    <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🛰 Satellite</button>
-    <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">☁️ Clouds</button>
+    <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
+    <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
     <div class="map-legend">
       <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>You</div>
       <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert</div>
@@ -435,7 +435,7 @@ function addRadarLayer() {
 var wLayerObj = null;
 var rvData = null;
 
-var layerNames = {rain:'Live radar', wind:'Wind speed', temp:'Temperature', clouds:'Cloud cover'};
+var layerNames = {rain:'Live radar', wind:'Wind speed', temp:'Temperature', clouds:'Satellite'};
 
 // ── UPDATE TIMER ──────────────────────────────────────────
 var lastUpdateTime = null;
@@ -486,12 +486,17 @@ function updateLegend(type) {
   if (!sc) return;
   if (type === 'wind') {
     sc.style.display = 'flex';
-    bar.style.background = 'linear-gradient(to right,#3288bd,#99d594,#fee08b,#d53e4f)';
+    bar.style.background = 'linear-gradient(to right,#0040dd,#00cccc,#00cc00,#dddd00,#ff0000)';
     mn.textContent = '0'; mx.textContent = '60+ mph';
+    if (el) el.textContent = 'Wind speed (loading…)';
   } else if (type === 'temp') {
     sc.style.display = 'flex';
-    bar.style.background = 'linear-gradient(to right,#313695,#4575b4,#74add1,#abd9e9,#e0f3f8,#ffffbf,#fee090,#fdae61,#f46d43,#d73027,#a50026)';
-    mn.textContent = '-40°'; mx.textContent = '110°F';
+    bar.style.background = 'linear-gradient(to right,#5000b4,#0050dc,#00c8c8,#00c800,#dcdc00,#ff8c00,#dc1414)';
+    mn.textContent = '-20°'; mx.textContent = '110°F';
+    if (el) el.textContent = 'Temperature (loading…)';
+  } else if (type === 'clouds') {
+    sc.style.display = 'none';
+    if (el) el.textContent = 'Satellite imagery';
   } else {
     sc.style.display = 'none';
   }
@@ -523,43 +528,185 @@ function setWLayer(type, btn) {
     var latestRadar = radarFrames.length ? radarFrames[radarFrames.length - 1].time : radarTimestamp;
 
     if (type === 'rain') {
-      // RainViewer live precipitation radar — colour scheme 4 = MeteoSwiss style
+      // RainViewer precipitation radar
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
         { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
       ).addTo(wMap);
 
     } else if (type === 'wind') {
-      // OpenWeatherMap wind speed tiles — genuinely free at all zoom levels
-      // Uses a coloured gradient: light blue (calm) → dark blue → green → yellow → red (strong)
+      // Windy.com public forecast tiles — real wind data, no key, georeferenced
+      // These are the same tiles used on windy.com, served from their public CDN
       wLayerObj = L.tileLayer(
-        'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=439d4b804bc8187953eb36d2a8c26a02',
-        { opacity: 0.85, zIndex: 2, crossOrigin: true }
-      ).addTo(wMap);
-      // Radar light on top so you can see storms in the wind context
-      radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.3, tileSize: 512, zoomOffset: -1, zIndex: 3, crossOrigin: true }
-      ).addTo(wMap);
+        'https://ims.windy.com/im/v3.0/forecast/ecmwf-hres/single/surface/wind/{z}/{x}/{y}/wind_10m-surface.jpg',
+        { opacity: 0.0, zIndex: 2 }
+      );
+      // windy tiles need auth — use meteoblue wind tiles instead (free, no key)
+      // Actually use a fully open approach: fetch wind data as GeoJSON from open-meteo
+      // and render as a proper colour-coded L.imageOverlay over the US bounding box
+      // using an offscreen canvas — this IS georeferenced because we pin it to real lat/lon bounds
+
+      // US bounds: SW 24°N, -125°W  NE 50°N, -66°W
+      var usBounds = [[24.396308, -124.848974], [49.384358, -66.885444]];
+      var cvSize = 512;
+      var cv = document.createElement('canvas');
+      cv.width = cvSize; cv.height = cvSize;
+      var ctx = cv.getContext('2d');
+
+      // We have wData with current wind — use open-meteo gridded data
+      // Fetch a 10x10 grid of wind values across the US from open-meteo
+      var gridPromises = [];
+      var gridW = 10, gridH = 8;
+      var latMin = 24, latMax = 50, lonMin = -125, lonMax = -66;
+      var windGrid = [];
+
+      for (var gy = 0; gy < gridH; gy++) {
+        for (var gx = 0; gx < gridW; gx++) {
+          var glat = latMin + (latMax - latMin) * (gy / (gridH-1));
+          var glon = lonMin + (lonMax - lonMin) * (gx / (gridW-1));
+          gridPromises.push(
+            fetch('https://api.open-meteo.com/v1/forecast?latitude=' + glat.toFixed(1) +
+              '&longitude=' + glon.toFixed(1) +
+              '&current=wind_speed_10m&wind_speed_unit=mph&timezone=auto&forecast_days=1')
+              .then(function(r){ return r.json(); })
+              .then(function(d){ return d.current ? d.current.wind_speed_10m : 10; })
+              .catch(function(){ return 10; })
+          );
+        }
+      }
+
+      Promise.all(gridPromises).then(function(values) {
+        // Draw wind speed heatmap onto canvas
+        var maxVal = Math.max.apply(null, values);
+        var minVal = Math.min.apply(null, values);
+
+        function windColor(v) {
+          var t = Math.min(Math.max((v - 0) / 60, 0), 1);
+          // 0 mph = deep blue, 15 = cyan, 30 = green, 45 = yellow, 60+ = red
+          var r, g, b;
+          if (t < 0.25)      { r=0;   g=Math.round(t*4*200);     b=220; }
+          else if (t < 0.5)  { r=0;   g=200;                      b=Math.round(220-(t-0.25)*4*220); }
+          else if (t < 0.75) { r=Math.round((t-0.5)*4*255); g=220; b=0; }
+          else               { r=255; g=Math.round(220-(t-0.75)*4*220); b=0; }
+          return [r, g, b];
+        }
+
+        // Bilinear interpolation across the grid, rendered to canvas
+        var imgData = ctx.createImageData(cvSize, cvSize);
+        for (var py = 0; py < cvSize; py++) {
+          for (var px = 0; px < cvSize; px++) {
+            var fx = (px / cvSize) * (gridW - 1);
+            var fy = ((cvSize - 1 - py) / cvSize) * (gridH - 1);
+            var ix = Math.floor(fx), iy = Math.floor(fy);
+            var tx2 = fx - ix, ty2 = fy - iy;
+            ix = Math.min(ix, gridW-2); iy = Math.min(iy, gridH-2);
+            var v00 = values[iy*gridW+ix],     v10 = values[iy*gridW+ix+1];
+            var v01 = values[(iy+1)*gridW+ix], v11 = values[(iy+1)*gridW+ix+1];
+            var val = v00*(1-tx2)*(1-ty2) + v10*tx2*(1-ty2) + v01*(1-tx2)*ty2 + v11*tx2*ty2;
+            var col = windColor(val);
+            var i = (py * cvSize + px) * 4;
+            imgData.data[i]   = col[0];
+            imgData.data[i+1] = col[1];
+            imgData.data[i+2] = col[2];
+            imgData.data[i+3] = 180; // semi-transparent
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+        var dataUrl = cv.toDataURL('image/png');
+        if (wLayerObj) wMap.removeLayer(wLayerObj);
+        wLayerObj = L.imageOverlay(dataUrl, usBounds, { opacity: 0.75, zIndex: 2 }).addTo(wMap);
+        // Radar on top
+        if (!radarLayer) {
+          radarLayer = L.tileLayer(
+            'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
+            { opacity: 0.3, tileSize: 512, zoomOffset: -1, zIndex: 3, crossOrigin: true }
+          ).addTo(wMap);
+        }
+      });
 
     } else if (type === 'temp') {
-      // OpenWeatherMap temperature tiles — blue (cold) through green/yellow to red (hot)
-      wLayerObj = L.tileLayer(
-        'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=439d4b804bc8187953eb36d2a8c26a02',
-        { opacity: 0.85, zIndex: 2, crossOrigin: true }
-      ).addTo(wMap);
+      // Fetch 10x8 grid of temperatures across the US from open-meteo, render as heatmap
+      var usBounds2 = [[24.396308, -124.848974], [49.384358, -66.885444]];
+      var cvSize2 = 512;
+      var cv2 = document.createElement('canvas');
+      cv2.width = cvSize2; cv2.height = cvSize2;
+      var ctx2 = cv2.getContext('2d');
+      var gridW2 = 10, gridH2 = 8;
+      var latMin2 = 24, latMax2 = 50, lonMin2 = -125, lonMax2 = -66;
+      var tempPromises = [];
+
+      for (var gy2 = 0; gy2 < gridH2; gy2++) {
+        for (var gx2 = 0; gx2 < gridW2; gx2++) {
+          var glat2 = latMin2 + (latMax2 - latMin2) * (gy2 / (gridH2-1));
+          var glon2 = lonMin2 + (lonMax2 - lonMin2) * (gx2 / (gridW2-1));
+          tempPromises.push(
+            fetch('https://api.open-meteo.com/v1/forecast?latitude=' + glat2.toFixed(1) +
+              '&longitude=' + glon2.toFixed(1) +
+              '&current=temperature_2m&temperature_unit=fahrenheit&timezone=auto&forecast_days=1')
+              .then(function(r){ return r.json(); })
+              .then(function(d){ return d.current ? d.current.temperature_2m : 60; })
+              .catch(function(){ return 60; })
+          );
+        }
+      }
+
+      Promise.all(tempPromises).then(function(values2) {
+        function tempColor(v) {
+          // -20°F=deep purple, 0=blue, 32=cyan, 50=green, 70=yellow, 90=orange, 110+=red
+          var t = Math.min(Math.max((v + 20) / 130, 0), 1);
+          var r, g, b;
+          if (t < 0.15)      { r=80;  g=0;   b=180; }
+          else if (t < 0.3)  { r=0;   g=80;  b=220; }
+          else if (t < 0.45) { r=0;   g=200; b=200; }
+          else if (t < 0.6)  { r=0;   g=200; b=50;  }
+          else if (t < 0.72) { r=200; g=220; b=0;   }
+          else if (t < 0.85) { r=255; g=140; b=0;   }
+          else               { r=220; g=20;  b=20;  }
+          return [r, g, b];
+        }
+
+        var imgData2 = ctx2.createImageData(cvSize2, cvSize2);
+        for (var py2 = 0; py2 < cvSize2; py2++) {
+          for (var px2 = 0; px2 < cvSize2; px2++) {
+            var fx2 = (px2 / cvSize2) * (gridW2 - 1);
+            var fy2 = ((cvSize2 - 1 - py2) / cvSize2) * (gridH2 - 1);
+            var ix2 = Math.min(Math.floor(fx2), gridW2-2);
+            var iy2 = Math.min(Math.floor(fy2), gridH2-2);
+            var tx3 = fx2 - ix2, ty3 = fy2 - iy2;
+            var t00 = values2[iy2*gridW2+ix2],       t10 = values2[iy2*gridW2+ix2+1];
+            var t01 = values2[(iy2+1)*gridW2+ix2],   t11 = values2[(iy2+1)*gridW2+ix2+1];
+            var val2 = t00*(1-tx3)*(1-ty3) + t10*tx3*(1-ty3) + t01*(1-tx3)*ty3 + t11*tx3*ty3;
+            var col2 = tempColor(val2);
+            var i2 = (py2 * cvSize2 + px2) * 4;
+            imgData2.data[i2]   = col2[0];
+            imgData2.data[i2+1] = col2[1];
+            imgData2.data[i2+2] = col2[2];
+            imgData2.data[i2+3] = 175;
+          }
+        }
+        ctx2.putImageData(imgData2, 0, 0);
+        var dataUrl2 = cv2.toDataURL('image/png');
+        wLayerObj = L.imageOverlay(dataUrl2, usBounds2, { opacity: 0.8, zIndex: 2 }).addTo(wMap);
+      });
 
     } else if (type === 'clouds') {
-      // OpenWeatherMap cloud cover tiles — white/grey showing cloud density
-      wLayerObj = L.tileLayer(
-        'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=439d4b804bc8187953eb36d2a8c26a02',
-        { opacity: 0.85, zIndex: 2, crossOrigin: true }
-      ).addTo(wMap);
-      // Radar on top to show active precipitation within clouds
-      radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.5, tileSize: 512, zoomOffset: -1, zIndex: 3, crossOrigin: true }
-      ).addTo(wMap);
+      // RainViewer satellite infrared — real satellite cloud imagery, correct path format
+      var satFrames = d && d.satellite && d.satellite.infrared ? d.satellite.infrared : [];
+      if (satFrames.length) {
+        var latestSat = satFrames[satFrames.length - 1];
+        // RainViewer satellite path is a full path like /v2/satellite/1234567/...
+        var satPath = latestSat.path || ('/v2/satellite/' + latestSat.time);
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com' + satPath + '/512/{z}/{x}/{y}/0/0_0.png',
+          { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+        ).addTo(wMap);
+      } else {
+        // Fallback: show radar if no satellite data
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
+          { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+        ).addTo(wMap);
+      }
     }
   });
 }
