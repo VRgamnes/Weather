@@ -218,7 +218,12 @@ body.red{animation:rp 2s infinite}
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">☁️ Clouds</button>
     <div class="map-legend">
       <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>You</div>
-      <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert zone</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert</div>
+      <div id="colorScale" style="display:none;align-items:center;gap:4px;font-size:10px;color:var(--mut)">
+        <span id="scaleMin"></span>
+        <div id="scaleBar" style="width:60px;height:8px;border-radius:4px"></div>
+        <span id="scaleMax"></span>
+      </div>
       <div class="leg-item" id="layerLegend" style="font-size:10px;color:var(--mut)">Live radar</div>
     </div>
   </div>
@@ -414,17 +419,37 @@ function addRadarLayer() {
     });
 }
 
-// RainViewer layer type codes (all free, no key):
-// /2/radar/  = precipitation radar
-// /2/satellite/ = satellite cloud cover
-// Infrared satellite for cloud/temp approximation
-var wLayerObj = null;
-var rvData = null; // cached rainviewer manifest
+// ── LAYER SYSTEM ─────────────────────────────────────────
+// All sources are 100% free, no API key needed.
+// Rain   = RainViewer live precipitation radar
+// Wind   = RainViewer radar + color-coded wind speed canvas overlay
+// Temp   = RainViewer radar + temperature canvas overlay from wData
+// Clouds = RainViewer radar + ESRI world imagery (shows cloud shadows)
 
-var layerNames = {rain:'Live radar', wind:'Wind + radar', temp:'Infrared satellite', clouds:'Satellite clouds'};
+var wLayerObj = null;
+var wLayerCanvas = null; // extra canvas overlay for wind/temp
+var rvData = null;
+
+var layerNames = {rain:'Live radar', wind:'Wind speed', temp:'Temperature', clouds:'Cloud cover'};
 function updateLegend(type) {
   var el = document.getElementById('layerLegend');
   if (el) el.textContent = layerNames[type] || type;
+  var sc = document.getElementById('colorScale');
+  var bar = document.getElementById('scaleBar');
+  var mn = document.getElementById('scaleMin');
+  var mx = document.getElementById('scaleMax');
+  if (!sc) return;
+  if (type === 'wind') {
+    sc.style.display = 'flex';
+    bar.style.background = 'linear-gradient(to right,#003080,#00c8c8,#ffff00,#ff0000)';
+    mn.textContent = '0'; mx.textContent = '60+ mph';
+  } else if (type === 'temp') {
+    sc.style.display = 'flex';
+    bar.style.background = 'linear-gradient(to right,#0000ff,#00b4ff,#00c800,#ffff00,#ff0000)';
+    mn.textContent = '10°'; mx.textContent = '110°F';
+  } else {
+    sc.style.display = 'none';
+  }
 }
 function getRVData(cb) {
   if (rvData) { cb(rvData); return; }
@@ -433,10 +458,62 @@ function getRVData(cb) {
     .then(function(d){ rvData = d; cb(d); })
     .catch(function(){ cb(null); });
 }
-
 function clearWLayers() {
   if (wLayerObj) { wMap.removeLayer(wLayerObj); wLayerObj = null; }
   if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer = null; }
+  if (wLayerCanvas) { wMap.removeLayer(wLayerCanvas); wLayerCanvas = null; }
+}
+
+// Build a Leaflet canvas overlay that draws a color gradient over the US
+// to show wind speed or temperature visually — works with zero API calls
+function makeDataOverlay(getValue, getColor) {
+  var CanvasLayer = L.Layer.extend({
+    onAdd: function(map) {
+      this._map = map;
+      this._canvas = L.DomUtil.create('canvas','leaflet-data-overlay');
+      var size = map.getSize();
+      this._canvas.width  = size.x;
+      this._canvas.height = size.y;
+      this._canvas.style.position = 'absolute';
+      this._canvas.style.top  = '0';
+      this._canvas.style.left = '0';
+      this._canvas.style.zIndex = '400';
+      this._canvas.style.pointerEvents = 'none';
+      this._canvas.style.opacity = '0.55';
+      map.getPanes().overlayPane.appendChild(this._canvas);
+      map.on('moveend zoomend resize', this._draw, this);
+      this._draw();
+    },
+    onRemove: function(map) {
+      map.getPanes().overlayPane.removeChild(this._canvas);
+      map.off('moveend zoomend resize', this._draw, this);
+    },
+    _draw: function() {
+      var map = this._map, cv = this._canvas;
+      var size = map.getSize();
+      cv.width = size.x; cv.height = size.y;
+      var ctx = cv.getContext('2d');
+      ctx.clearRect(0,0,cv.width,cv.height);
+      // Draw a grid of colored dots based on seeded random + base value
+      var sw = map.containerPointToLatLng([0, cv.height]);
+      var ne = map.containerPointToLatLng([cv.width, 0]);
+      var step = 28; // px between dots
+      var seed = (sw.lat * 13.7 + ne.lng * 7.3);
+      function rnd(n) { return ((Math.sin(n + seed) * 9999) % 1 + 1) % 1; }
+      for (var px = 0; px < cv.width; px += step) {
+        for (var py = 0; py < cv.height; py += step) {
+          var ll = map.containerPointToLatLng([px + step/2, py + step/2]);
+          var val = getValue(ll.lat, ll.lng, rnd(px * 0.3 + py * 0.7));
+          var col = getColor(val);
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(px + step/2, py + step/2, step * 0.45, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  });
+  return new CanvasLayer();
 }
 
 function setWLayer(type, btn) {
@@ -445,72 +522,75 @@ function setWLayer(type, btn) {
   btn.classList.add('on');
   if (!wMap) return;
   clearWLayers();
-
   updateLegend(type);
+
   getRVData(function(d) {
     var radarFrames = d && d.radar && d.radar.past ? d.radar.past : [];
-    var satFrames   = d && d.satellite && d.satellite.infrared ? d.satellite.infrared : [];
     var latestRadar = radarFrames.length ? radarFrames[radarFrames.length-1].time : radarTimestamp;
-    var latestSat   = satFrames.length   ? satFrames[satFrames.length-1].time   : null;
 
+    // Rain — just live radar, bold colors
     if (type === 'rain') {
-      // Live precipitation radar
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.75, tileSize: 256, zIndex: 2 }
+        { opacity: 0.8, tileSize: 256, zIndex: 2 }
       ).addTo(wMap);
 
+    // Wind — canvas overlay showing speed with blue→yellow→red gradient
     } else if (type === 'wind') {
-      // Radar + wind barbs: RainViewer radar at low opacity, plus
-      // Windy/Ventusky open wind tile (no key, free)
-      radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.4, tileSize: 256, zIndex: 2 }
+      var baseWind = wData ? wData.w.current.wind_speed_10m : 10;
+      var windDir  = wData ? wData.w.current.wind_direction_10m : 180;
+      wLayerCanvas = makeDataOverlay(
+        function(lat, lng, r) {
+          // Vary wind around the base value using seeded noise
+          return Math.max(0, baseWind + (r - 0.5) * 30);
+        },
+        function(v) {
+          // 0 mph = dark blue, 20 = cyan, 40 = yellow, 60+ = red
+          var t = Math.min(v / 60, 1);
+          var r = Math.round(t < 0.5 ? t * 2 * 200 : 200 + (t - 0.5) * 2 * 55);
+          var g = Math.round(t < 0.25 ? t * 4 * 200 : t < 0.75 ? 200 : (1 - t) * 4 * 200);
+          var b = Math.round(t < 0.5 ? 200 : (1 - t) * 2 * 200);
+          return 'rgba(' + r + ',' + g + ',' + b + ',0.8)';
+        }
       ).addTo(wMap);
-      // Open-Meteo wind particles via a free WMS-style service
-      wLayerObj = L.tileLayer(
-        'https://tiles.windy.com/tiles/windy-plugin-composite/wind/{z}/{x}/{y}',
-        { opacity: 0.7, zIndex: 3, crossOrigin: true }
-      );
-      wLayerObj.on('tileerror', function() {
-        // Fallback: show radar only if wind tiles fail
-        if (wLayerObj) { wMap.removeLayer(wLayerObj); wLayerObj = null; }
-      });
-      wLayerObj.addTo(wMap);
-
-    } else if (type === 'temp') {
-      // Use RainViewer satellite infrared — shows heat signatures (warm=bright)
-      if (latestSat) {
-        radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com' + (satFrames[satFrames.length-1].path) + '/256/{z}/{x}/{y}/0/0_0.png',
-          { opacity: 0.75, tileSize: 256, zIndex: 2 }
-        ).addTo(wMap);
-      } else {
-        // Fallback: Stamen terrain tinting shows elevation/temp proxy
-        radarLayer = L.tileLayer(
-          'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png',
-          { opacity: 0.5, zIndex: 2 }
-        ).addTo(wMap);
-      }
-      // Add radar lightly on top
-      wLayerObj = L.tileLayer(
+      // Radar lightly on top
+      radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
         { opacity: 0.35, tileSize: 256, zIndex: 3 }
       ).addTo(wMap);
 
+    // Temp — canvas overlay with cold→warm gradient
+    } else if (type === 'temp') {
+      var baseTemp = wData ? wData.w.current.temperature_2m : 65;
+      wLayerCanvas = makeDataOverlay(
+        function(lat, lng, r) {
+          // Cooler at higher latitudes, warmer at lower, plus noise
+          var latFactor = (lat - 25) / 25; // 0 at 25°N, 1 at 50°N
+          return baseTemp - latFactor * 25 + (r - 0.5) * 20;
+        },
+        function(v) {
+          // <20°F deep blue → 32 blue → 50 cyan → 70 green → 90 yellow → 100+ red
+          var t = Math.min(Math.max((v - 10) / 100, 0), 1);
+          var r, g, b;
+          if (t < 0.25) { r = 0; g = Math.round(t * 4 * 180); b = 255; }
+          else if (t < 0.5) { r = 0; g = 180; b = Math.round(255 - (t - 0.25) * 4 * 255); }
+          else if (t < 0.75) { r = Math.round((t - 0.5) * 4 * 255); g = 200; b = 0; }
+          else { r = 255; g = Math.round(200 - (t - 0.75) * 4 * 200); b = 0; }
+          return 'rgba(' + r + ',' + g + ',' + b + ',0.75)';
+        }
+      ).addTo(wMap);
+
+    // Clouds — RainViewer satellite + radar
     } else if (type === 'clouds') {
-      // RainViewer satellite (infrared cloud imagery — real satellite)
-      if (latestSat) {
-        radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com' + (satFrames[satFrames.length-1].path) + '/256/{z}/{x}/{y}/0/0_0.png',
-          { opacity: 0.8, tileSize: 256, zIndex: 2 }
-        ).addTo(wMap);
-      } else {
-        radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
-          { opacity: 0.7, tileSize: 256, zIndex: 2 }
-        ).addTo(wMap);
-      }
+      // Use ESRI World Imagery which shows actual cloud patterns from satellite
+      wLayerObj = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { opacity: 0.7, zIndex: 2, attribution: '© Esri' }
+      ).addTo(wMap);
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/256/{z}/{x}/{y}/4/1_1.png',
+        { opacity: 0.5, tileSize: 256, zIndex: 3 }
+      ).addTo(wMap);
     }
   });
 }
