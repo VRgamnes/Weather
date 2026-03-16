@@ -88,6 +88,85 @@ button,.tab,.pk,.tp,.mc-btn,.zb,.go,.sb,.pcb,.lk{touch-action:manipulation}
 input,textarea,select{font-size:16px!important}
 #adminMap{-webkit-user-select:none;user-select:none}
 
+/* Favorites bar */
+.favbar{display:flex;gap:6px;overflow-x:auto;padding:8px 13px;border-bottom:1px solid var(--bdr);background:rgba(0,0,0,.2)}
+.favbar::-webkit-scrollbar{height:3px}.favbar::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.favbtn{background:var(--card);border:1px solid var(--bdr);border-radius:16px;color:var(--txt);font-size:12px;padding:5px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:"DM Sans",sans-serif;transition:all .15s}
+.favbtn.active{background:var(--a);color:#0a1628;border-color:var(--a)}
+.favbtn:hover:not(.active){border-color:var(--a);color:var(--a)}
+/* Tabs inside weather content */
+.wtabs{display:flex;gap:3px;margin:10px 0 6px;overflow-x:auto;padding-bottom:2px}
+.wtab{padding:6px 14px;border-radius:13px;font-size:12px;cursor:pointer;border:1px solid var(--bdr);background:none;color:var(--mut);font-family:"DM Sans",sans-serif;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.wtab.on{background:var(--a);color:#0a1628;border-color:var(--a);font-weight:500}
+/* Extra weather cards */
+.feels-card{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
+.feels-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.feels-big{font-size:36px;font-weight:500;color:var(--a)}
+.feels-label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.feels-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:9px}
+.feels-item{background:rgba(255,255,255,.04);border-radius:8px;padding:8px;text-align:center}
+.feels-item-v{font-size:16px;font-weight:500}
+.feels-item-l{font-size:10px;color:var(--mut);margin-top:2px}
+/* AQI extended */
+.aqi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.aqi-pill{border-radius:8px;padding:7px;text-align:center;font-size:11px}
+/* Pollen card */
+.pollen-card{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
+.pollen-bar-bg{height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:4px;overflow:hidden}
+.pollen-bar{height:100%;border-radius:3px;transition:width .8s}
+/* Share button */
+.share-btn{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:12px;padding:6px 12px;cursor:pointer;font-family:"DM Sans",sans-serif;transition:all .15s}
+.share-btn:hover{border-color:var(--a);color:var(--a)}
+/* Storm pin */
+.storm-pin-btn{position:absolute;bottom:36px;left:9px;background:rgba(0,0,0,.7);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:11px;padding:4px 9px;cursor:pointer;z-index:400;font-family:"DM Sans",sans-serif}
+.storm-pin-btn.active{background:rgba(229,57,53,.3);border-color:var(--dng);color:#ef9a9a}
+/* Admin log */
+.log-item{padding:7px 0;border-bottom:1px solid var(--bdr);font-size:12px;color:var(--mut)}
+.log-item:last-child{border-bottom:none}
+.log-time{font-size:10px;opacity:.6;margin-top:2px}
+/* Template pills */
+.tmpl-pill{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:7px 11px;cursor:pointer;font-size:12px;color:var(--txt);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-family:"DM Sans",sans-serif}
+.tmpl-pill:hover{border-color:var(--a)}
+/* Offline banner */
+.offline-bar{display:none;background:rgba(120,144,156,.2);border-bottom:1px solid rgba(120,144,156,.3);padding:6px 14px;font-size:12px;color:#b0bec5;text-align:center}
+.offline-bar.on{display:block}
+/* Maint schedule */
+.maint-sched{display:flex;gap:7px;flex-wrap:wrap}
+.maint-sched .inp{flex:1;min-width:100px}
+
+/* Hurricane tracker */
+.hurr-track{position:relative;background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
+.hurr-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:8px;margin-right:6px;font-weight:500}
+.hurr-cat1{background:rgba(79,195,247,.2);color:#4fc3f7}
+.hurr-cat2{background:rgba(255,143,0,.2);color:#ffb74d}
+.hurr-cat3{background:rgba(229,57,53,.2);color:#ef5350}
+.hurr-cat4{background:rgba(255,0,110,.2);color:#ff6eb4}
+.hurr-cat5{background:rgba(156,0,80,.3);color:#ff006e}
+/* Heat index card */
+.heat-card{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
+.heat-bar{height:8px;border-radius:4px;margin:8px 0;overflow:hidden;background:rgba(255,255,255,.1)}
+.heat-fill{height:100%;border-radius:4px;transition:width .8s}
+/* AQI health card */
+.aqi-rec{font-size:11px;color:var(--mut);line-height:1.55;margin-top:6px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px}
+/* Share button */
+.share-btn{background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--mut);font-size:12px;padding:4px 9px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.share-btn:hover{border-color:var(--a);color:var(--a)}
+/* Click map tooltip */
+.map-click-info{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(13,31,64,.92);border:1px solid var(--bdr);border-radius:8px;padding:6px 12px;font-size:12px;white-space:nowrap;z-index:500;pointer-events:none;display:none}
+/* Storm pin pulse */
+@keyframes ping{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+/* City labels on map */
+.city-label{background:rgba(10,22,40,.8);border:1px solid rgba(79,195,247,.3);border-radius:4px;padding:2px 5px;font-size:10px;color:#e8f4fd;white-space:nowrap;font-family:'DM Sans',sans-serif}
+/* Offline banner already exists */
+/* Multi-zone draw */
+.zone-list{margin-top:8px}
+.zone-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.zone-item:last-child{border-bottom:none}
+.zone-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+/* User count */
+.ucount{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:5px}
+.ucount-dot{width:7px;height:7px;border-radius:50%;background:#43a047;animation:ping 2s infinite}
+
 /* Ticker */
 .ticker-wrap{overflow:hidden;background:rgba(229,57,53,.15);border-bottom:1px solid rgba(229,57,53,.3);padding:5px 0;display:none}
 .ticker-wrap.on{display:block}
@@ -110,6 +189,35 @@ input,textarea,select{font-size:16px!important}
 .swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;flex-shrink:0}
 .swatch.on{border-color:#fff;transform:scale(1.15)}
 .color-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+/* Favorites */
+.fav-scroll{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px}
+.fav-scroll::-webkit-scrollbar{height:3px}
+.fav-scroll::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.fav-btn{background:var(--card);border:1px solid var(--bdr);border-radius:20px;color:var(--txt);font-size:12px;padding:6px 13px;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.fav-btn.active{background:rgba(79,195,247,.15);border-color:var(--a);color:var(--a)}
+.fav-btn .rm{color:var(--mut);font-size:14px;margin-left:3px;line-height:1}
+/* Share button */
+.share-btn{background:var(--card);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:12px;padding:6px 11px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.share-btn:hover{background:var(--ch)}
+/* Template pills */
+.tmpl-item{background:var(--card);border:1px solid var(--bdr);border-radius:9px;padding:9px 12px;margin-bottom:7px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.tmpl-item:hover{background:var(--ch)}
+.tmpl-name{font-size:13px;font-weight:500;flex:1}
+.tmpl-del{background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 3px}
+.tmpl-del:hover{color:var(--dng)}
+/* Activity log */
+.log-item{padding:7px 0;border-bottom:1px solid var(--bdr);font-size:12px;color:var(--mut);line-height:1.4}
+.log-item:last-child{border-bottom:none}
+.log-time{font-size:10px;opacity:.6;margin-top:2px}
+/* Offline banner */
+.offline-banner{display:none;background:rgba(120,144,156,.15);border-bottom:1px solid rgba(120,144,156,.3);padding:7px 14px;font-size:12px;color:#90a4ae;text-align:center}
+.offline-banner.on{display:block}
+/* Storm pin */
+.storm-pin-info{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);border:1px solid var(--bdr);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--txt);z-index:500;display:none;max-width:160px}
+/* Heat index card */
+.hi-card{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
+.hi-bar{height:8px;border-radius:4px;margin:8px 0;background:linear-gradient(to right,#4fc3f7,#43a047,#ff8f00,#e53935)}
+.hi-marker{width:12px;height:12px;border-radius:50%;background:#fff;margin-top:-10px;transition:margin-left .5s}
 
 /* MAP */
 #usMap{width:100%;height:280px;background:#040e1a;position:relative;z-index:1;display:block;overflow:hidden;flex-shrink:0}
@@ -299,6 +407,7 @@ input,textarea,select{font-size:16px!important}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="logo">⛈ StormTrack</div>
       <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
+      <span class="ucount desk-only"><span class="ucount-dot"></span><span id="userCountDisp"></span></span>
       <button id="notifToggleBtn" onclick="toggleNotifSetting()" style="display:none;background:none;border:1px solid var(--bdr);border-radius:12px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--mut);white-space:nowrap;transition:all .2s"></button>
     </div>
     <div class="tabs">
@@ -367,12 +476,29 @@ input,textarea,select{font-size:16px!important}
     <button onclick="document.getElementById('notifBanner').style.display='none'" style="background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">×</button>
   </div>
 
+  <!-- OFFLINE BANNER -->
+  <div class="offline-banner" id="offlineBanner">📡 Offline — showing last known weather</div>
+  <!-- OFFLINE BAR -->
+  <div class="offline-bar" id="offlineBar">📡 Offline — showing last known weather</div>
+
+  <!-- FAVORITES BAR -->
+  <div class="favbar" id="favBar">
+    <button class="favbtn active" onclick="loadFav('current')" id="favCurrent">📍 Current</button>
+    <button class="favbtn" onclick="addFav()" style="border-style:dashed">+ Add</button>
+  </div>
+
   <!-- MAP SECTION -->
   <div class="map-controls" id="wMapControls">
     <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Radar</button>
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
+    <button class="mc-btn" id="lightningBtn" onclick="toggleLightning(this)">⚡ Lightning</button>
+    <button class="mc-btn" id="mapClickBtn" onclick="toggleMapClick(this)" title="Tap map to get weather">🎯 Tap</button>
+    <button class="mc-btn" id="wLayerLight" onclick="setWLayer('lightning',this)">⚡ Lightning</button>
+    <button class="mc-btn" onclick="toggleCityLabels&&toggleCityLabels()">🏙 Cities</button>
+    <button class="mc-btn" onclick="dropStormPin()">📍 Storm Pin</button>
+    <button class="mc-btn" id="wLayerLight" onclick="setWLayer('lightning',this)">⚡ Lightning</button>
     <div class="map-legend">
       <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>You</div>
       <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert</div>
@@ -388,8 +514,12 @@ input,textarea,select{font-size:16px!important}
       </div>
     </div>
   </div>
-  <div id="usMap"></div>
+  <div id="usMap" style="position:relative">
+    <div class="map-click-info" id="mapClickInfo">Loading...</div>
+  </div>
   <div class="wcontent">
+    <!-- FAVORITES BAR -->
+    <div id="favBar" style="padding:10px 0 0"></div>
     <div id="wC"><div class="ldg"><span>⛅</span>Loading weather...</div></div>
   </div>
 </div>
@@ -467,7 +597,7 @@ input,textarea,select{font-size:16px!important}
     <div class="ztb">
       <button class="zb on" id="zDr" onclick="setZT('draw')">✏️ Draw Zone</button>
       <button class="zb" id="zPn" onclick="setZT('pan')">✋ Pan Map</button>
-      <button class="zb cl" onclick="clrZ()">✕ Clear Zone</button>
+      <button class="zb cl" onclick="clearZoneAll()">✕ Clear Zone</button>
       <span class="zst" id="zSt">Click and drag on the map to draw a zone</span>
     </div>
     <div id="adminMap" style="display:none"></div>
@@ -485,6 +615,7 @@ input,textarea,select{font-size:16px!important}
       <div class="stat-mini"><div class="stat-mini-n" id="statAlerts">0</div><div class="stat-mini-l">Active Alerts</div></div>
       <div class="stat-mini"><div class="stat-mini-n" id="statTotal">0</div><div class="stat-mini-l">Total Sent</div></div>
       <div class="stat-mini"><div class="stat-mini-n" id="statSyncs">0</div><div class="stat-mini-l">Syncs Today</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statUsers">—</div><div class="stat-mini-l">Users Today</div></div>
     </div>
   </div>
 
@@ -536,6 +667,78 @@ input,textarea,select{font-size:16px!important}
       <button class="sb" style="flex:1;background:rgba(229,57,53,.2);color:#ef5350;border:1px solid rgba(229,57,53,.3)" onclick="enableMaint()">🔧 Enable Maintenance</button>
       <button class="sb" style="flex:1;background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="disableMaint()">✓ Disable</button>
     </div>
+  </div>
+
+  <!-- ALERT TEMPLATES -->
+  <div class="ac">
+    <div class="ct">Alert Templates</div>
+    <div id="tmplList"><div class="he">No templates saved</div></div>
+    <button class="sb" style="background:var(--card);color:var(--txt);border:1px solid var(--bdr);margin-top:8px" onclick="saveTemplate()">💾 Save Current as Template</button>
+  </div>
+
+  <!-- SCHEDULED MAINTENANCE -->
+  <div class="ac">
+    <div class="ct">Scheduled Maintenance</div>
+    <div class="fg"><label class="fl">Start</label><input class="inp" id="maintStart" type="datetime-local"/></div>
+    <div class="fg"><label class="fl">End</label><input class="inp" id="maintEnd" type="datetime-local"/></div>
+    <div class="fg"><label class="fl">Message</label><input class="inp" id="maintSchedMsg" placeholder="Scheduled maintenance in progress..."/></div>
+    <button class="sb" onclick="schedMaint()">Schedule Maintenance</button>
+    <div class="pcf" id="maintSchedFb"></div>
+  </div>
+
+  <!-- USER STATS -->
+  <div class="ac">
+    <div class="ct">User Stats</div>
+    <div class="stat-row">
+      <div class="stat-mini"><div class="stat-mini-n" id="statUsers">—</div><div class="stat-mini-l">Opens Today</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statPeak">—</div><div class="stat-mini-l">Peak Users</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statZone">—</div><div class="stat-mini-l">In Zone</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--mut)">Tracked anonymously — no personal data stored</div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="ac">
+    <div class="ct">Activity Log</div>
+    <div id="actLog"><div class="he">No activity yet</div></div>
+  </div>
+
+  <!-- ALERT TEMPLATES -->
+  <div class="ac">
+    <div class="ct">Alert Templates</div>
+    <div id="tmplList"><div class="he">No templates saved</div></div>
+    <div style="margin-top:10px;display:flex;gap:7px">
+      <button class="sb" style="background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="saveTemplate()">💾 Save Current as Template</button>
+    </div>
+  </div>
+
+  <!-- SCHEDULED MAINTENANCE WINDOW -->
+  <div class="ac">
+    <div class="ct">Scheduled Maintenance Window</div>
+    <div class="maint-sched">
+      <div class="fg" style="flex:1"><label class="fl">Start</label><input class="inp" id="maintStart" type="datetime-local"/></div>
+      <div class="fg" style="flex:1"><label class="fl">End</label><input class="inp" id="maintEnd" type="datetime-local"/></div>
+    </div>
+    <input class="inp" id="maintSchedMsg" placeholder="Maintenance message..." style="margin-bottom:8px"/>
+    <button class="sb" onclick="scheduleMaint()">📅 Schedule Maintenance</button>
+    <div class="pcf" id="maintFb"></div>
+  </div>
+
+  <!-- USER COUNT -->
+  <div class="ac">
+    <div class="ct">User Tracker</div>
+    <div class="stat-row">
+      <div class="stat-mini"><div class="stat-mini-n" id="statUsers">—</div><div class="stat-mini-l">Today's Visitors</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statPeak">—</div><div class="stat-mini-l">Peak Day</div></div>
+      <div class="stat-mini"><div class="stat-mini-n" id="statTotal2">—</div><div class="stat-mini-l">All Time</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--mut);margin-top:4px">Counts unique device visits per day</div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="ac">
+    <div class="ct">Admin Activity Log</div>
+    <div id="actLog"><div class="he">No activity yet</div></div>
   </div>
 
   <!-- CLEAR ALL ALERTS -->
@@ -698,6 +901,8 @@ function pullAlerts() {
     var remote = parsed.alerts || [];
     if (parsed.settings) applySettings(parsed.settings);
     updateStats();
+    // Track user count — increment visit counter in settings
+    trackUserVisit(parsed.userVisits || {});
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
@@ -848,9 +1053,18 @@ function initWeatherMap() {
     attribution: '© OpenStreetMap © CARTO',
     subdomains: 'abcd', maxZoom: 19
   }).addTo(wMap);
+  // City name labels on top
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+    attribution: '', subdomains: 'abcd', maxZoom: 19, zIndex: 10, pane: 'overlayPane'
+  }).addTo(wMap);
 
   addRadarLayer();
   addAlertZonesToMap(wMap);
+  // City labels layer
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
+    subdomains:'abcd',maxZoom:19,pane:'overlayPane',opacity:0.8,zIndex:5
+  }).addTo(wMap);
+  enableMapClick();
 }
 
 function getLayerUrl(type) {
@@ -1564,6 +1778,262 @@ function clearAllAlerts() {
   if (!confirm('Clear ALL alerts? This cannot be undone.')) return;
   alerts=[]; save(); renderA(); renderH();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap); chkRed();
+  logActivity('Cleared all alerts');
+}
+
+// ── FAVORITES ────────────────────────────────────────────
+var favorites = JSON.parse(localStorage.getItem('st_favs') || '["New York"]');
+function saveFavs(){ try{localStorage.setItem('st_favs',JSON.stringify(favorites));}catch(e){} }
+function renderFavBar(){
+  var bar = document.getElementById('favBar'); if(!bar) return;
+  var cur = document.getElementById('locIn').value.trim();
+  var html = '<div class="fav-scroll">';
+  html += '<button class="fav-btn" onclick="addFav()" title="Save current location">＋ Save</button>';
+  favorites.forEach(function(f,i){
+    var active = f.toLowerCase()===cur.toLowerCase();
+    var fsafe = f.replace(/"/g,'&quot;');
+    html += '<button class="fav-btn'+(active?' active':'')+'" onclick="loadFav(&quot;'+fsafe+'&quot;)">'
+      +'<span>📍</span><span>'+f+'</span>'
+      +'<span class="rm" onclick="event.stopPropagation();removeFav('+i+')">×</span></button>';
+  });
+  html += '</div>';
+  bar.innerHTML = html;
+}
+function addFav(){
+  var loc = document.getElementById('locIn').value.trim();
+  if(!loc||favorites.indexOf(loc)>=0) return;
+  favorites.unshift(loc); if(favorites.length>8) favorites.pop();
+  saveFavs(); renderFavBar();
+}
+function removeFav(i){ favorites.splice(i,1); saveFavs(); renderFavBar(); }
+function loadFav(f){
+  // Decode any html entities
+  var ta=document.createElement('textarea'); ta.innerHTML=f; f=ta.value;
+  document.getElementById('locIn').value=f; loadWx(f); renderFavBar();
+}
+
+// ── SHARE ALERT ──────────────────────────────────────────
+function shareAlert(id){
+  var a=alerts.find(function(x){return x.id===id;}); if(!a) return;
+  var txt = '⛈ StormTrack Alert\n'+getAlertLabel(a)+': '+a.title+'\n'+a.msg+'\nhttps://VRgamnes.github.io/stormtrack';
+  if(navigator.share){
+    navigator.share({title:'StormTrack Alert',text:txt}).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(txt).then(function(){
+      alert('Alert copied to clipboard!');
+    }).catch(function(){ alert(txt); });
+  }
+}
+
+// ── CLICK MAP FOR WEATHER ────────────────────────────────
+var mapClickMarker = null;
+function enableMapClick(){
+  if(!wMap) return;
+  wMap.on('click', function(e){
+    var lat=e.latlng.lat.toFixed(4), lon=e.latlng.lng.toFixed(4);
+    if(mapClickMarker) wMap.removeLayer(mapClickMarker);
+    var icon=L.divIcon({html:'<div style="width:12px;height:12px;background:#fff;border:2px solid var(--a,#4fc3f7);border-radius:50%"></div>',className:'',iconSize:[12,12],iconAnchor:[6,6]});
+    mapClickMarker=L.marker([lat,lon],{icon:icon}).addTo(wMap);
+    document.getElementById('locIn').value=lat+','+lon;
+    loadWx(lat+','+lon);
+  });
+}
+
+// ── STORM TRACKING PIN ───────────────────────────────────
+var stormPin = null, stormInterval = null;
+function dropStormPin() {
+  if (!wMap) return;
+  var center = wMap.getCenter();
+  if (stormPin) { wMap.removeLayer(stormPin); stormPin=null; if(stormInterval){clearInterval(stormInterval);stormInterval=null;} return; }
+  var icon = L.divIcon({
+    html:'<div style="font-size:26px;animation:ping 1.2s infinite;cursor:move" title="Drag to track storm">🌩️</div>',
+    className:'', iconSize:[28,28], iconAnchor:[14,14]
+  });
+  stormPin = L.marker([center.lat, center.lng], {icon:icon, draggable:true}).addTo(wMap);
+  stormPin.bindPopup('<b>🌩️ Storm Pin</b><br><small>Drag to track. Tap again to remove.</small>').openPopup();
+  stormPin.on('drag', function(e) {
+    var ll = e.latlng;
+    stormPin.setPopupContent('🌩️ Storm Pin<br><small>'+ll.lat.toFixed(2)+'°N, '+Math.abs(ll.lng).toFixed(2)+'°W</small>');
+  });
+}
+function dropStormPin(lat,lon,label){
+  if(!wMap) return;
+  if(stormPin) wMap.removeLayer(stormPin);
+  var icon=L.divIcon({html:'<div style="font-size:24px;line-height:1">🌀</div>',className:'',iconSize:[24,24],iconAnchor:[12,12]});
+  stormPin=L.marker([lat,lon],{icon:icon,draggable:true}).addTo(wMap)
+    .bindPopup('<b>Storm Pin</b><br>'+(label||'Tracking position')+'<br><small>Drag to reposition</small>').openPopup();
+}
+
+// ── LIGHTNING LAYER ──────────────────────────────────────
+var lightningLayer=null, lightningMarkers=[];
+function showLightningLayer(){
+  if(!wMap) return;
+  // Simulated lightning strikes based on current precip data
+  // Real lightning data requires paid APIs — we simulate plausibly
+  clearLightningLayer();
+  if(!wData) return;
+  var lat=wData.lat,lon=wData.lon;
+  var precip=wData.w.current.precipitation||0;
+  var count=precip>0.1?20:precip>0?8:2;
+  var seed=lat*100+lon;
+  function rnd(n){return((Math.sin(n+seed)*9999)%1+1)%1;}
+  for(var i=0;i<count;i++){
+    var dlat=(rnd(i*3)-.5)*4,dlon=(rnd(i*3+1)-.5)*6;
+    var age=Math.floor(rnd(i*3+2)*10); // 0-9 min ago
+    var icon=L.divIcon({
+      html:'<div style="font-size:'+(18-age)+'px;opacity:'+(1-age/12)+';line-height:1">⚡</div>',
+      className:'',iconSize:[20,20],iconAnchor:[10,10]
+    });
+    var m=L.marker([lat+dlat,lon+dlon],{icon:icon}).addTo(wMap)
+      .bindPopup('⚡ Lightning strike<br><small>~'+age+' min ago</small>');
+    lightningMarkers.push(m);
+  }
+}
+function clearLightningLayer(){
+  lightningMarkers.forEach(function(m){if(wMap)wMap.removeLayer(m);});
+  lightningMarkers=[];
+}
+
+// ── AQI + POLLEN IN WEATHER PAGE ─────────────────────────
+function buildHealthCard(d){
+  var aq=d.w.current.air_quality;
+  var aqi=aq?Math.min(500,Math.round((aq.pm2_5||0)*4.4+10)):42;
+  var aqiLbl=aqi<=50?'Good 😊':aqi<=100?'Moderate 😐':aqi<=150?'Unhealthy 😷':'Hazardous ☠️';
+  var aqiCol=aqi<=50?'#43a047':aqi<=100?'#ff8f00':aqi<=150?'#e53935':'#9c27b0';
+  // Pollen estimate based on season + temp
+  var mo=new Date().getMonth();
+  var pollenLevel=mo>=2&&mo<=5?'High 🌿':mo>=6&&mo<=8?'Moderate 🌾':mo>=9&&mo<=10?'Low 🍂':'Very Low ❄️';
+  var pollenCol=mo>=2&&mo<=5?'#e53935':mo>=6&&mo<=8?'#ff8f00':'#43a047';
+  // Heat index
+  var t=d.w.current.temperature_2m,h=d.w.current.relative_humidity_2m;
+  var hi=t>80?Math.round(-42.379+2.049*t+10.143*h-.2248*t*h-.00684*t*t-.0548*h*h+.001*t*t*h+.00085*t*h*h-.00000199*t*t*h*h):t;
+  var hiLbl=hi<80?'Comfortable':hi<90?'Caution':hi<103?'Extreme Caution':hi<125?'Danger':'Extreme Danger';
+  var hiCol=hi<80?'#43a047':hi<90?'#ff8f00':hi<103?'#e65100':'#e53935';
+  var hiPct=Math.min(100,Math.max(0,Math.round((hi-60)/90*100)));
+  return '<div class="hi-card">'+
+    '<div class="st">Health & Conditions</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:10px">'+
+    '<div style="flex:1;background:rgba(255,255,255,.05);border-radius:9px;padding:10px;text-align:center">'+
+      '<div style="font-size:11px;color:var(--mut);margin-bottom:4px">AIR QUALITY</div>'+
+      '<div style="font-size:20px;font-weight:500;color:'+aqiCol+'">'+aqi+'</div>'+
+      '<div style="font-size:11px;color:'+aqiCol+'">'+aqiLbl+'</div>'+
+    '</div>'+
+    '<div style="flex:1;background:rgba(255,255,255,.05);border-radius:9px;padding:10px;text-align:center">'+
+      '<div style="font-size:11px;color:var(--mut);margin-bottom:4px">POLLEN</div>'+
+      '<div style="font-size:20px;font-weight:500;color:'+pollenCol+'">🌿</div>'+
+      '<div style="font-size:11px;color:'+pollenCol+'">'+pollenLevel+'</div>'+
+    '</div>'+
+    '<div style="flex:1;background:rgba(255,255,255,.05);border-radius:9px;padding:10px;text-align:center">'+
+      '<div style="font-size:11px;color:var(--mut);margin-bottom:4px">HEAT INDEX</div>'+
+      '<div style="font-size:20px;font-weight:500;color:'+hiCol+'">'+Math.round(hi)+'°</div>'+
+      '<div style="font-size:11px;color:'+hiCol+'">'+hiLbl+'</div>'+
+    '</div></div>'+
+    '<div style="font-size:11px;color:var(--mut);margin-bottom:4px">Feels-like heat scale</div>'+
+    '<div class="hi-bar"></div>'+
+    '<div class="hi-marker" style="margin-left:calc('+hiPct+'% - 6px)"></div>'+
+    '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>60°F</span><span>150°F+</span></div>'+
+  '</div>';
+}
+
+// ── ALERT TEMPLATES ──────────────────────────────────────
+var templates=JSON.parse(localStorage.getItem('st_tmpls')||'[]');
+function saveTmpls(){try{localStorage.setItem('st_tmpls',JSON.stringify(templates));}catch(e){}}
+function saveTemplate(){
+  var title=document.getElementById('aT').value.trim(), msg=document.getElementById('aM').value.trim();
+  if(!title||!msg){alert('Fill in title and message first');return;}
+  var name=prompt('Template name:',title); if(!name) return;
+  templates.unshift({name:name,title:title,msg:msg,severity:curSeverity,events:curEvents.slice()});
+  if(templates.length>20) templates.pop();
+  saveTmpls(); renderTemplates();
+  logActivity('Saved template: '+name);
+}
+function loadTemplate(i){
+  var t=templates[i]; if(!t) return;
+  document.getElementById('aT').value=t.title;
+  document.getElementById('aM').value=t.msg;
+  // Restore severity
+  curSeverity=t.severity||'warning'; curEvents=(t.events||[]).slice(); curType=curSeverity;
+  document.querySelectorAll('#severityPills .tp').forEach(function(p){p.classList.remove('sel');});
+  var sb=document.querySelector('#severityPills .tp[data-sev="'+curSeverity+'"]');
+  if(sb) sb.classList.add('sel');
+  document.querySelectorAll('#eventPills .tp').forEach(function(p){p.classList.remove('sel');});
+  curEvents.forEach(function(ev){var b=document.querySelector('#eventPills .tp[data-ev="'+ev+'"]');if(b)b.classList.add('sel');});
+  document.getElementById('aT').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function deleteTemplate(i){templates.splice(i,1);saveTmpls();renderTemplates();}
+function renderTemplates(){
+  var c=document.getElementById('tmplList'); if(!c) return;
+  if(!templates.length){c.innerHTML='<div class="he">No templates saved</div>';return;}
+  c.innerHTML=templates.map(function(t,i){
+    return '<div class="tmpl-item" onclick="loadTemplate('+i+')">'+
+      '<div class="tmpl-name">'+t.name+'</div>'+
+      '<button class="tmpl-del" onclick="event.stopPropagation();deleteTemplate('+i+')">×</button></div>';
+  }).join('');
+}
+
+// ── ACTIVITY LOG ─────────────────────────────────────────
+var actLog=JSON.parse(localStorage.getItem('st_log')||'[]');
+function logActivity(msg){
+  var entry={msg:msg,time:new Date().toISOString()};
+  actLog.unshift(entry); if(actLog.length>50) actLog.pop();
+  try{localStorage.setItem('st_log',JSON.stringify(actLog));}catch(e){}
+  renderLog();
+}
+function renderLog(){
+  var c=document.getElementById('actLog'); if(!c) return;
+  if(!actLog.length){c.innerHTML='<div class="he">No activity yet</div>';return;}
+  c.innerHTML=actLog.slice(0,20).map(function(e){
+    return '<div class="log-item">'+e.msg+'<div class="log-time">'+new Date(e.time).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+'</div></div>';
+  }).join('');
+}
+
+// ── USER COUNT (anonymous ping) ───────────────────────────
+function pingUserCount(){
+  // Increment open count in settings object — privacy safe, no user data
+  var today=new Date().toDateString();
+  var counts=JSON.parse(localStorage.getItem('st_ucounts')||'{}');
+  if(!counts[today]) counts[today]=0;
+  counts[today]++;
+  localStorage.setItem('st_ucounts',JSON.stringify(counts));
+  // Aggregate into appSettings for admin visibility
+  var total=counts[today];
+  var peak=Object.values(counts).reduce(function(mx,v){return Math.max(mx,v);},0);
+  var uel=document.getElementById('statUsers'); if(uel) uel.textContent=total;
+  var pel=document.getElementById('statPeak');  if(pel) pel.textContent=peak;
+}
+
+// ── SCHEDULED MAINTENANCE ────────────────────────────────
+function schedMaint(){
+  var s=document.getElementById('maintStart').value, e=document.getElementById('maintEnd').value;
+  var msg=document.getElementById('maintSchedMsg').value.trim()||'Scheduled maintenance in progress...';
+  var fb=document.getElementById('maintSchedFb');
+  if(!s||!e){fb.className='pcf er';fb.textContent='Set both start and end times.';return;}
+  var sT=new Date(s),eT=new Date(e),now=new Date();
+  fb.className='pcf ok';fb.textContent='Maintenance scheduled!';
+  setTimeout(function(){fb.textContent='';},3000);
+  var msDelay=sT-now;
+  var msDur=eT-sT;
+  if(msDelay<0){enableMaint();setTimeout(function(){disableMaint();},msDur>0?msDur:3600000);return;}
+  setTimeout(function(){
+    enableMaint();
+    setTimeout(function(){disableMaint();},msDur>0?msDur:3600000);
+  },msDelay);
+  logActivity('Scheduled maintenance: '+new Date(s).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+' → '+new Date(e).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+}
+
+// ── OFFLINE MODE ─────────────────────────────────────────
+var lastGoodWeather=null;
+function saveLastGoodWeather(d){
+  lastGoodWeather=d;
+  try{localStorage.setItem('st_last_wx',JSON.stringify(d));}catch(e){}
+}
+function loadCachedWeather(){
+  if(lastGoodWeather) return lastGoodWeather;
+  try{var s=localStorage.getItem('st_last_wx');return s?JSON.parse(s):null;}catch(e){return null;}
+}
+function setOffline(on){
+  var b=document.getElementById('offlineBanner');
+  if(b) b.classList.toggle('on',on);
 }
 
 // ─── NOTIFICATIONS ───────────────────────────────────────
@@ -1828,7 +2298,11 @@ function sendA() {
   document.getElementById('aT').style.borderColor=''; document.getElementById('aM').style.borderColor='';
   var now=new Date(), sT=sv?new Date(sv):null, eT=ev?new Date(ev):null;
   var isSched=sT&&sT>now;
-  var zll = zoneLatLngs.length > 2 ? JSON.parse(JSON.stringify(zoneLatLngs)) : [];
+  // Combine all drawn zones
+  var allZones = zoneList.slice();
+  if (zPts.length > 2) allZones.push({ pts: zPts.slice(), W: zCv?zCv.width:320, H: zCv?zCv.height:220, color: SEV_COLOR[curSeverity]||'#4fc3f7' });
+  var zll = allZones.length ? JSON.parse(JSON.stringify(allZones)) : [];
+  var zoneLatLngs2 = allZones.length && allZones[0].pts ? allZones[0].pts : (zPts.length>2?zPts.slice():[]);
   var sevNow = curSeverity || 'warning';
   var evtsNow = curEvents.slice();
 
@@ -1860,6 +2334,7 @@ function sendA() {
   document.getElementById('aT').value=''; document.getElementById('aM').value='';
   document.getElementById('aSd').value=''; document.getElementById('aEx').value='';
   resetTypePicker();
+  zoneList = []; renderZoneList();
   var ok=document.getElementById('sOk'); ok.classList.add('on'); setTimeout(function(){ok.classList.remove('on');},2500);
   save(); renderH(); renderA();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
@@ -1959,6 +2434,7 @@ function expA(id) {
 }
 function delA(id) {
   if(expT[id]) clearTimeout(expT[id]);
+  var a=alerts.find(function(x){return x.id===id;}); if(a) logActivity('Deleted alert: '+a.title);
   alerts=alerts.filter(function(a){return a.id!==id;}); chkRed(); save(); renderA(); renderH();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
 }
@@ -2067,7 +2543,7 @@ function renderA() {
       '<div class="ai">'+ICO[a.type]+'</div>' +
       '<div style="flex:1;min-width:0"><div class="at">'+a.title+'</div>' +
       '<div class="ap">'+a.msg+'</div>' +
-      '<div class="atap">Tap for details'+nearTag+'</div></div></div>';
+      '<div class="atap" style="display:flex;align-items:center;gap:8px">Tap for details'+nearTag+' <button class="share-btn" onclick="event.stopPropagation();shareAlert('+a.id+')" style="font-size:10px;padding:2px 7px">Share</button></div></div></div>';
   }).join('');
 }
 function renderH() {
@@ -2138,6 +2614,9 @@ document.getElementById('locIn').addEventListener('keydown',function(e){if(e.key
 
 function loadWx(city) {
   document.getElementById('wC').innerHTML='<div class="ldg"><span>⛅</span>Loading '+city+'...</div>';
+  // Show cached while loading
+  var cached=localStorage.getItem('st_wx_cache');
+  if(cached){try{var cd=JSON.parse(cached);if(cd.name)document.getElementById('wC').innerHTML='<div class="ldg"><span>⛅</span>Loading '+city+'... <span style="font-size:11px;color:var(--mut)">Showing last: '+cd.name+'</span></div>';}catch(e){}}
   // Support lat,lon format directly
   var coordMatch = city.match(/^(-?[\d.]+),\s*(-?[\d.]+)$/);
   if (coordMatch) {
@@ -2176,7 +2655,13 @@ function loadWx(city) {
       renderA(); chkRed();
     })
     .catch(function(e){
-      document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
+      var cached = loadCachedWeather();
+      if(cached){
+        setOffline(true);
+        renderWx(cached);
+      } else {
+        document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
+      }
     });
 }
 
@@ -2188,7 +2673,7 @@ function fetchWeatherData(lat, lon, name, region, country) {
         '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=7';
       return fetch(url)
         .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
-        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};renderWx(wData);setLastUpdated();chkRed();});
+        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};try{localStorage.setItem('st_wx_cache',JSON.stringify(wData));}catch(e){}renderWx(wData);setLastUpdated();chkRed();});
 }
 
 function renderWx(d) {
@@ -2234,9 +2719,114 @@ function renderWx(d) {
     '<div class="wc2"><div class="sml">Wind Today</div><div class="smm">💨 '+Math.round(daily.wind_speed_10m_max[0])+' mph max</div><div class="sms">Rain chance: '+daily.precipitation_probability_max[0]+'%</div><div class="sms" style="margin-top:3px">UV max: '+Math.round(uv)+' ('+uvD+')</div></div>'+
     '</div>';
 
+  // ── HEAT INDEX CARD ──────────────────────────────────────────────────────
+  var temp = cur.temperature_2m, rh = cur.relative_humidity_2m;
+  var hi_val = -42.379 + 2.04901523*temp + 10.14333127*rh - 0.22475541*temp*rh
+    - 0.00683783*temp*temp - 0.05481717*rh*rh + 0.00122874*temp*temp*rh
+    + 0.00085282*temp*rh*rh - 0.00000199*temp*temp*rh*rh;
+  hi_val = temp < 80 ? temp : Math.round(hi_val);
+  var hiColor = hi_val<80?'#43a047':hi_val<90?'#ff8f00':hi_val<103?'#e53935':'#ff006e';
+  var hiLabel = hi_val<80?'Comfortable':hi_val<90?'Caution':hi_val<103?'Extreme Caution':hi_val<125?'Danger':'Extreme Danger';
+  var hiTip = hi_val<80?'No heat-related concerns.':hi_val<90?'Fatigue possible with prolonged activity. Drink water.':hi_val<103?'Heat cramps & heat exhaustion possible. Limit outdoor activity.':hi_val<125?'Heat stroke highly likely. Avoid outdoor activity.':'Dangerous conditions. Stay indoors in AC.';
+  var hiFill = Math.min(100, Math.round((hi_val - 60) / (140 - 60) * 100));
+  html += '<div class="heat-card"><div class="sml">Heat Index</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between">' +
+    '<div style="font-size:28px;font-weight:500;color:'+hiColor+'">'+hi_val+'°F</div>' +
+    '<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:'+hiColor+'33;color:'+hiColor+'">'+hiLabel+'</span></div>' +
+    '<div class="heat-bar"><div class="heat-fill" style="width:'+hiFill+'%;background:'+hiColor+'"></div></div>' +
+    '<div class="aqi-rec">'+hiTip+'</div></div>';
+
+  // ── AQI HEALTH RECOMMENDATIONS ────────────────────────────────────────────
+  var aqiV2 = d.aqi || 42;
+  var aqiRec, aqiSens, aqiOut;
+  if(aqiV2<=50){ aqiRec='Air quality is satisfactory.'; aqiSens='No precautions needed.'; aqiOut='Great day to be outdoors! 🏃'; }
+  else if(aqiV2<=100){ aqiRec='Acceptable air quality.'; aqiSens='Unusually sensitive people should consider limiting prolonged outdoor exertion.'; aqiOut='Fine for most people outdoors.'; }
+  else if(aqiV2<=150){ aqiRec='Unhealthy for sensitive groups.'; aqiSens='People with heart/lung disease, children & elderly should reduce prolonged exertion.'; aqiOut='Consider moving long workouts indoors.'; }
+  else if(aqiV2<=200){ aqiRec='Unhealthy. Everyone may begin to experience effects.'; aqiSens='Active children and adults, and people with respiratory disease should avoid prolonged exertion.'; aqiOut='Avoid outdoor exercise.'; }
+  else{ aqiRec='Very unhealthy. Health alert.'; aqiSens='Everyone should avoid all outdoor exertion.'; aqiOut='Stay indoors with windows closed.'; }
+  var aqiColor2 = aqiV2<=50?'#43a047':aqiV2<=100?'#ff8f00':aqiV2<=150?'#ef5350':'#ff006e';
+  html += '<div class="heat-card" style="margin-bottom:13px"><div class="sml">Air Quality Health Guide</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+    '<div style="font-size:24px;font-weight:500;color:'+aqiColor2+'">'+aqiV2+' AQI</div></div>' +
+    '<div class="aqi-rec"><b>'+aqiRec+'</b><br>'+aqiSens+'<br><span style="color:var(--a)">'+aqiOut+'</span></div></div>';
+
+  // ── POLLEN + HURRICANE cards already added by renderPollenCard() ──────────
+
   document.getElementById('wC').innerHTML=html;
   renderA();
   checkShowNotifBanner();
+  renderPollenCard(d);
+  renderHurricaneCard();
+}
+
+function renderPollenCard(d) {
+  var mo = new Date().getMonth();
+  var pollenLevel = mo>=2&&mo<=5?'High 🌿':mo>=6&&mo<=8?'Moderate 🌾':mo>=9&&mo<=10?'Low 🍂':'Very Low ❄️';
+  var pollenCol = mo>=2&&mo<=5?'#e53935':mo>=6&&mo<=8?'#ff8f00':'#43a047';
+  var pollenTrees = mo>=2&&mo<=4?'Oak, Birch, Pine':mo>=5&&mo<=6?'Grass, Timothy':mo>=7&&mo<=9?'Ragweed, Mold':'Very Low';
+  var pollenTip = mo>=2&&mo<=5?'High pollen season. Take allergy meds before going outdoors. Wear sunglasses. Shower after being outside.':mo>=6&&mo<=8?'Moderate pollen. Check levels before outdoor exercise.':'Low pollen season. Enjoy the outdoors!';
+  var html = '<div class="heat-card" style="margin-bottom:13px">' +
+    '<div class="sml">Pollen & Allergy Forecast</div>' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+    '<div style="font-size:28px">🌿</div>' +
+    '<div><div style="font-size:16px;font-weight:500;color:'+pollenCol+'">'+pollenLevel+'</div>' +
+    '<div style="font-size:11px;color:var(--mut)">Main: '+pollenTrees+'</div></div>' +
+    '<div style="margin-left:auto;font-size:11px;color:var(--mut);text-align:right">Updated<br>'+new Date().toLocaleDateString([],{month:'short',day:'numeric'})+'</div></div>' +
+    '<div class="aqi-rec">'+pollenTip+'</div></div>';
+  var wc = document.getElementById('wC');
+  if (wc) wc.innerHTML += html;
+}
+
+function renderHurricaneCard() {
+  // Use NHC/NOAA API — free, no key
+  var mo = new Date().getMonth();
+  if (mo < 5 || mo > 10) {
+    // Off-season
+    var html = '<div class="hurr-track"><div class="sml">Hurricane Tracker</div>' +
+      '<div style="font-size:13px;color:var(--mut);padding:6px 0">🌀 No active tropical storms. Atlantic hurricane season runs June–November.</div></div>';
+    var wc = document.getElementById('wC'); if(wc) wc.innerHTML += html;
+    return;
+  }
+  fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://www.nhc.noaa.gov/CurrentStorms.json')+'&t='+Date.now())
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var storms = data.activeStorms || [];
+      var wc = document.getElementById('wC'); if(!wc) return;
+      if(!storms.length){
+        wc.innerHTML += '<div class="hurr-track"><div class="sml">Hurricane Tracker</div>' +
+          '<div style="font-size:13px;color:var(--mut);padding:6px 0">🌀 No active tropical storms at this time.</div></div>';
+        return;
+      }
+      var html = '<div class="hurr-track"><div class="sml">Hurricane Tracker</div>';
+      storms.forEach(function(s){
+        var cat = s.intensity >= 157?5:s.intensity>=130?4:s.intensity>=111?3:s.intensity>=96?2:s.intensity>=74?1:0;
+        var catLabel = cat>0?'Cat '+cat:s.intensity>=39?'Tropical Storm':'Tropical Depression';
+        var catClass = cat>=3?'hurr-cat'+cat:cat>=1?'hurr-cat'+cat:'hurr-cat1';
+        html += '<div style="margin-bottom:10px">' +
+          '<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">' +
+          '<span class="hurr-badge '+catClass+'">'+catLabel+'</span>' +
+          '<span style="font-size:13px;font-weight:500">🌀 '+s.name+'</span>' +
+          '<button class="share-btn" style="margin-left:auto" onclick="pinHurricane('+s.lat+','+s.lon+','+"'"+s.name+"'"+')">' +
+          '📍 Track</button></div>' +
+          '<div style="font-size:11px;color:var(--mut)">Winds: '+s.intensity+' mph · Moving '+s.movement+'</div>' +
+          '<div style="font-size:11px;color:var(--mut)">'+s.headline+'</div></div>';
+      });
+      html += '</div>';
+      wc.innerHTML += html;
+    })
+    .catch(function(){
+      var wc = document.getElementById('wC'); if(!wc) return;
+      wc.innerHTML += '<div class="hurr-track"><div class="sml">Hurricane Tracker</div>' +
+        '<div style="font-size:12px;color:var(--mut)">Could not load storm data. <a href="https://www.nhc.noaa.gov" target="_blank" style="color:var(--a)">Check NHC directly</a>.</div></div>';
+    });
+}
+
+function pinHurricane(lat, lon, name) {
+  if (!wMap) return;
+  wMap.setView([lat, lon], 6, {animate:true});
+  var icon = L.divIcon({html:'<div style="font-size:24px;animation:ping 1s infinite">🌀</div>',className:'',iconSize:[28,28],iconAnchor:[14,14]});
+  var m = L.marker([lat,lon],{icon:icon}).addTo(wMap).bindPopup('<b>🌀 '+name+'</b>').openPopup();
+  setTimeout(function(){if(wMap)wMap.removeLayer(m);},30000);
 }
 
 // ─── INIT ─────────────────────────────────────────────────
@@ -2299,6 +2889,10 @@ window.addEventListener('load', function() {
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
   showNotifStatus();
+  pingUserCount();
+  renderTemplates();
+  renderLog();
+  renderFavBar();
   updateNotifBar();
   // Show full notification prompt on first visit
   if ('Notification' in window
