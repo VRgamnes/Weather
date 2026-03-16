@@ -9,75 +9,81 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--sky:#0a1628;--a:#4fc3f7;--a2:#81d4fa;--warn:#ff8f00;--dng:#e53935;--ok:#43a047;--txt:#e8f4fd;--mut:#7eb8d4;--card:rgba(255,255,255,.07);--ch:rgba(255,255,255,.13);--bdr:rgba(79,195,247,.2)}
-html,body{min-height:100vh;background:var(--sky);color:var(--txt);font-family:'DM Sans',sans-serif}
+html,body{height:100%;background:var(--sky);color:var(--txt);font-family:'DM Sans',sans-serif;-webkit-text-size-adjust:100%}
+*{-webkit-tap-highlight-color:transparent}
+body.red{animation:rp 2s infinite}
+@keyframes rp{0%,100%{background:#3a0000}50%{background:#5a0000}}
+@keyframes si{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
 
-/* ── RESPONSIVE LAYOUT ─────────────────────────────────── */
-/* Mobile-first, expands to desktop sidebar layout at 768px */
+/* APP SHELL */
+.app-shell{display:flex;flex-direction:column;min-height:100vh}
+
+/* NAV — MOBILE */
+.nav{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.45);border-bottom:1px solid var(--bdr);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:1000;width:100%}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--a);white-space:nowrap}
+.desk-only{display:none}
+.nm{flex:1;min-width:100px;max-width:220px;display:flex;gap:5px}
+.li{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--bdr);border-radius:20px;padding:7px 12px;color:var(--txt);font-size:16px;font-family:'DM Sans',sans-serif;outline:none}
+.li:focus{border-color:var(--a)}
+.li::placeholder{color:var(--mut)}
+.go{background:var(--a);border:none;border-radius:15px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.go:hover{background:var(--a2)}
+.tabs{display:flex;gap:4px}
+.tab{padding:6px 11px;border-radius:13px;font-size:12px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap}
+.tab.on{background:var(--a);color:#0a1628;font-weight:500}
+.tab:hover:not(.on){border-color:var(--bdr);color:var(--txt)}
+
+/* MAIN CONTENT */
+.main-content{flex:1;min-width:0;overflow-y:auto}
+
+/* PAGES — only ONE visible at a time */
+.pg{display:none;padding:0 0 40px}.pg.on{display:block}
+.pinpg{display:none;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;min-height:80vh}.pinpg.on{display:flex}
+.apg{display:none;padding:13px 13px 40px}.apg.on{display:block}
+.mw{display:none;padding:10px 13px 20px}.mw.on{display:block}
+
+/* DESKTOP 768px+ */
 @media(min-width:768px){
-  .desk-only{display:block!important}
-  .app-shell{display:flex;flex-direction:row;min-height:100vh}
-  /* Sidebar nav on desktop */
-  .nav{flex-direction:column;width:220px;min-height:100vh;padding:20px 14px;border-right:1px solid var(--bdr);border-bottom:none;position:fixed;top:0;left:0;z-index:1000;overflow-y:auto;gap:16px;flex-wrap:nowrap;align-items:flex-start}
-  .logo{font-size:26px;margin-bottom:4px}
-  .nm{max-width:100%;width:100%;flex-direction:column}
-  .li{width:100%}
-  .tabs{flex-direction:column;width:100%;gap:6px}
-  .tab{width:100%;text-align:left;padding:10px 14px;border-radius:10px;font-size:13px}
-  /* Main content pushed right of sidebar */
-  .main-content{margin-left:220px;flex:1;min-width:0}
-  /* Wider map */
-  #usMap{height:420px}
-  /* Wider cards */
+  .desk-only{display:block}
+  .app-shell{flex-direction:row;height:100vh;overflow:hidden}
+  .nav{flex-direction:column;align-items:flex-start;flex-wrap:nowrap;width:220px;height:100vh;padding:22px 16px;gap:18px;border-right:1px solid var(--bdr);border-bottom:none;position:fixed;top:0;left:0;overflow-y:auto}
+  .logo{font-size:26px;letter-spacing:4px}
+  .nm{max-width:100%;width:100%;flex-direction:column;gap:6px}
+  .li{width:100%;border-radius:10px;padding:9px 12px}
+  .go{width:100%;text-align:center;padding:9px;border-radius:10px;font-size:13px}
+  .tabs{flex-direction:column;width:100%;gap:5px}
+  .tab{width:100%;text-align:left;padding:11px 14px;border-radius:10px;font-size:13px}
+  .main-content{margin-left:220px;flex:1;min-width:0;height:100vh;overflow-y:auto}
+  #usMap{height:440px}
+  #adminMap{height:380px}
   .sg{grid-template-columns:repeat(3,minmax(0,1fr))}
-  /* Admin two-column layout */
-  .admin-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .admin-cols .ac{margin-bottom:0}
-  /* Bigger text on desktop */
-  .bt{font-size:100px}
-  .hero{padding:28px 0 16px}
-  /* Wider hourly scroll */
-  .hs{flex-wrap:wrap;overflow-x:visible}
-  .hc{min-width:64px}
-  /* Wider modals */
+  .wcontent{padding:0 20px}
+  .map-controls{padding:10px 20px}
+  .apg{padding:20px 24px 40px}
+  .bt{font-size:96px}
   .mb{max-width:600px}
-  /* Admin map taller */
-  #adminMap{height:360px}
+  #modZoneMap{height:220px}
+  .hs{flex-wrap:wrap}
+  .hc{min-width:64px}
+  .pinpg{min-height:100vh}
 }
 @media(min-width:1100px){
   .nav{width:260px}
   .main-content{margin-left:260px}
   .sg{grid-template-columns:repeat(4,minmax(0,1fr))}
   #usMap{height:500px}
-  #adminMap{height:420px}
+  #adminMap{height:430px}
+  .bt{font-size:104px}
 }
-body.red{animation:rp 2s infinite}
-body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
-*{-webkit-tap-highlight-color:transparent}
-@keyframes rp{0%,100%{background:#3a0000}50%{background:#5a0000}}
-@keyframes si{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
 
-/* NAV */
-.nav{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.4);border-bottom:1px solid var(--bdr);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:1000;overflow-y:auto}
-.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--a)}
-.nm{flex:1;min-width:110px;max-width:230px;display:flex;gap:5px}
-.li{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--bdr);border-radius:20px;padding:7px 12px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none}
-.li:focus{border-color:var(--a)}
-.li::placeholder{color:var(--mut)}
-.go{background:var(--a);border:none;border-radius:15px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif}
-.go:hover{background:var(--a2)}
-.tabs{display:flex;gap:4px}
-.tab{padding:6px 11px;border-radius:13px;font-size:12px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .2s}
-.tab.on{background:var(--a);color:#0a1628;font-weight:500}
-.tab:hover:not(.on){border-color:var(--bdr);color:var(--txt)}
-
-/* PAGES */
-.pg{display:none;padding:0 0 32px}.pg.on{display:block}
-.pinpg{display:none;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;min-height:80vh}.pinpg.on{display:flex}
-.apg{display:none;padding:13px 13px 32px}.apg.on{display:block}
+/* Touch polish */
+button,.tab,.pk,.tp,.mc-btn,.zb,.go,.sb,.pcb,.lk{touch-action:manipulation}
+input,textarea,select{font-size:16px!important}
+#adminMap{-webkit-user-select:none;user-select:none}
 
 /* MAP */
-#usMap{width:100%;height:320px;background:#040e1a;position:relative;z-index:1}
-.map-controls{display:flex;gap:6px;padding:8px 13px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center}
+#usMap{width:100%;height:280px;background:#040e1a;position:relative;z-index:1;display:block;overflow:hidden;flex-shrink:0}
+.map-controls{display:flex;gap:6px;padding:8px 13px;background:rgba(0,0,0,.5);border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center;position:relative;z-index:2;flex-shrink:0}
 .mc-btn{background:rgba(255,255,255,.07);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:11px;padding:5px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
 .mc-btn.on{background:rgba(79,195,247,.2);border-color:var(--a);color:var(--a)}
 .mc-btn:hover:not(.on){background:var(--ch)}
@@ -86,7 +92,7 @@ body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 .leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 
 /* WEATHER CONTENT */
-.wcontent{padding:0 13px;box-sizing:border-box}
+.wcontent{padding:0 13px;box-sizing:border-box;width:100%;position:relative;z-index:0;background:var(--sky)}
 .hero{text-align:center;padding:18px 0 11px}
 .cn{font-size:17px;font-weight:500}.cs{font-size:12px;color:var(--mut);margin-bottom:7px}
 .hico{font-size:58px;margin:3px 0;line-height:1.1}
@@ -131,7 +137,6 @@ body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 .smm{font-size:14px;font-weight:500;margin-bottom:3px}.sms{font-size:11px;color:var(--mut);margin-top:2px}
 
 /* MODAL */
-.mw{display:none;padding:10px 13px 20px}.mw.on{display:block}
 .mb{background:#0d1f40;border:1px solid var(--bdr);border-radius:14px;padding:18px;animation:si .25s ease;max-width:480px;margin:0 auto}
 .mt2{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px}
 .mbdg{font-size:11px;padding:3px 10px;border-radius:12px}
@@ -188,7 +193,7 @@ body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 .sok{text-align:center;padding:8px;font-size:12px;color:var(--ok);display:none}.sok.on{display:block}
 
 /* ADMIN MAP ZONE */
-#adminMap{width:100%;height:260px;border-radius:9px;overflow:hidden;border:1px solid var(--bdr)}
+#adminMap{width:100%;height:260px;border-radius:9px;overflow:hidden;border:1px solid var(--bdr);position:relative;z-index:1}
 .ztb{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap;align-items:center}
 .zb{background:rgba(255,255,255,.07);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:13px;padding:9px 16px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;min-height:42px;touch-action:manipulation}
 .zb.on{background:rgba(79,195,247,.25);border-color:var(--a);color:var(--a);border-width:2px}
@@ -222,6 +227,10 @@ body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 
 /* Leaflet dark overrides */
 .leaflet-tile-pane{filter:brightness(0.85) saturate(0.7) hue-rotate(185deg)}
+.leaflet-container{background:#040e1a!important}
+#usMap .leaflet-pane,#adminMap .leaflet-pane{z-index:auto}
+#usMap .leaflet-top,#usMap .leaflet-bottom{z-index:5}
+#adminMap .leaflet-top,#adminMap .leaflet-bottom{z-index:5}
 .leaflet-control-attribution{background:rgba(0,0,0,.5)!important;color:#666!important;font-size:9px!important}
 .leaflet-control-attribution a{color:#888!important}
 .leaflet-bar a{background:#0d1f40!important;color:var(--txt)!important;border-color:var(--bdr)!important}
@@ -235,42 +244,7 @@ body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 
 @media(max-width:400px){.bt{font-size:70px}.tr2{flex-direction:column}}
 
-/* ── RESPONSIVE PC / MOBILE ──────────────────────────── */
-@media(min-width:768px){
-  /* PC: two-column layout */
-  body{max-width:1200px;margin:0 auto}
-  .nav{padding:12px 24px}
-  .nm{max-width:320px}
-  #usMap{height:480px}
-  .wcontent{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;padding:0 24px}
-  .hero{grid-column:1/-1;padding:24px 0 16px}
-  .asec{grid-column:1/-1}
-  .rsec{grid-column:1/-1}
-  .sg{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .hourly-section,.hscroll,.hs-wrap{grid-column:1/-1}
-  .fsec{grid-column:1/-1}
-  .sr2{grid-column:1/-1}
-  .apg{max-width:900px;margin:0 auto;padding:20px 24px 40px}
-  .apg .ac{padding:20px}
-  #adminMap{height:380px}
-  .pinpg{padding:60px 20px}
-  .mw{padding:20px 24px}
-  .mb{max-width:580px}
-  #modZoneMap{height:220px}
-  .map-controls{padding:10px 24px}
-}
-@media(min-width:1024px){
-  #usMap{height:540px}
-  .sg{grid-template-columns:repeat(4,minmax(0,1fr))}
-  #adminMap{height:440px}
-}
 
-/* Prevent text selection during map drawing on mobile */
-#adminMap{-webkit-user-select:none;user-select:none}
-/* Smoother touch on all interactive elements */
-button,.tab,.pk,.tp,.mc-btn,.zb,.go,.sb,.pcb,.lock-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-/* Stop iOS from zooming on input focus */
-input,textarea,select{font-size:16px!important}
 </style>
 </head>
 <body>
@@ -385,7 +359,7 @@ input,textarea,select{font-size:16px!important}
       <button class="zb cl" onclick="clrZ()">✕ Clear Zone</button>
       <span class="zst" id="zSt">Click and drag on the map to draw a zone</span>
     </div>
-    <div id="adminMap"></div>
+    <div id="adminMap" style="display:none"></div>
     <div class="zh">Draw directly on the real US map. The zone will show on the weather map for all users.</div>
   </div>
 
@@ -830,7 +804,17 @@ var aMap = null, aRadar = null, drawPoly = null, drawLatLngs = [];
 var aUserMarker = null;
 
 function initAdminMap() {
-  if (aMap) { setTimeout(function() { aMap.invalidateSize(); addAlertZonesToMap(aMap); }, 100); return; }
+  if (aMap) {
+    // Make sure container is visible before invalidating
+    document.getElementById('adminMap').style.display = 'block';
+    setTimeout(function() {
+      aMap.invalidateSize();
+      addAlertZonesToMap(aMap);
+      setZT(zTool);
+    }, 120);
+    return;
+  }
+  document.getElementById('adminMap').style.display = 'block';
   aMap = L.map('adminMap', { center: [38.5, -96], zoom: 4, zoomControl: true });
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -955,24 +939,38 @@ function clrZ() {
 }
 
 // ─── PAGE NAV ─────────────────────────────────────────────
+function showPage(wOn, pinOn, admOn, modOn) {
+  document.getElementById('wPg').classList.toggle('on', wOn);
+  document.getElementById('pinPg').classList.toggle('on', pinOn);
+  document.getElementById('aPg').classList.toggle('on', admOn);
+  document.getElementById('modW').classList.toggle('on', modOn);
+  // Completely hide weather map when not needed — prevents Leaflet sizing conflict
+  var showWMap = wOn || modOn;
+  document.getElementById('usMap').style.display = showWMap ? 'block' : 'none';
+  document.getElementById('wMapControls').style.display = showWMap ? 'flex' : 'none';
+  // Hide admin map container when not on admin page
+  document.getElementById('adminMap').style.display = admOn ? 'block' : 'none';
+  // Let CSS layout settle then fix map sizes
+  setTimeout(function() {
+    if (showWMap && wMap) wMap.invalidateSize();
+    if (admOn && aMap) aMap.invalidateSize();
+  }, 150);
+}
 function goW() {
-  document.getElementById('tW').classList.add('on'); document.getElementById('tA').classList.remove('on');
-  document.getElementById('wPg').classList.add('on');
-  document.getElementById('pinPg').classList.remove('on');
-  document.getElementById('aPg').classList.remove('on');
-  document.getElementById('modW').classList.remove('on');
-  setTimeout(function() { if (wMap) wMap.invalidateSize(); }, 100);
+  document.getElementById('tW').classList.add('on');
+  document.getElementById('tA').classList.remove('on');
+  showPage(true, false, false, false);
 }
 function goAdmin() {
-  document.getElementById('tA').classList.add('on'); document.getElementById('tW').classList.remove('on');
-  document.getElementById('wPg').classList.remove('on'); document.getElementById('modW').classList.remove('on');
+  document.getElementById('tA').classList.add('on');
+  document.getElementById('tW').classList.remove('on');
   if (admOpen) {
-    document.getElementById('aPg').classList.add('on'); document.getElementById('pinPg').classList.remove('on');
+    showPage(false, false, true, false);
     setTimeout(initAdminMap, 150);
     return;
   }
   pinE = ''; updDots();
-  document.getElementById('pinPg').classList.add('on'); document.getElementById('aPg').classList.remove('on');
+  showPage(false, true, false, false);
 }
 function lockIt() { admOpen = false; goW(); }
 
@@ -983,7 +981,7 @@ function updDots() { for (var i = 0; i < 4; i++) { document.getElementById('p'+i
 function checkPin() {
   if (pinE === PIN) {
     admOpen = true; document.getElementById('pErr').textContent = '';
-    document.getElementById('pinPg').classList.remove('on'); document.getElementById('aPg').classList.add('on');
+    showPage(false, false, true, false);
     setTimeout(initAdminMap, 150);
   } else {
     document.getElementById('pErr').textContent = 'Wrong PIN, try again.';
@@ -1170,13 +1168,10 @@ function openMod(id) {
     },100);
   } else { zw.style.display='none'; }
 
-  document.getElementById('wPg').classList.remove('on');
-  document.getElementById('modW').classList.add('on');
+  showPage(false, false, false, true);
 }
 function closeMod() {
-  document.getElementById('modW').classList.remove('on');
-  document.getElementById('wPg').classList.add('on');
-  setTimeout(function(){if(wMap)wMap.invalidateSize();},100);
+  showPage(true, false, false, false);
 }
 
 // ─── WEATHER DATA (OPEN-METEO — FREE) ────────────────────
@@ -1273,6 +1268,8 @@ window.addEventListener('resize', function() {
   if (aMap) aMap.invalidateSize();
 });
 window.addEventListener('load', function() {
+  // Start on weather page — ensure admin map is hidden
+  document.getElementById('adminMap').style.display = 'none';
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
   loadWx('New York');
 });
