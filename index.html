@@ -396,10 +396,12 @@ window.onerror = function(msg,src,line,col,err){
 };
 </script>
 <script>
-// ─── JSONBIN CONFIG ───────────────────────────────────────
-var BIN_ID  = '69b7f859aa77b81da9ec620a';
-var BIN_KEY = '$2a$10$Lpdw3HBUzIFG0Ml9CLk0JuYK0WXjLNPVLzGyX0QHpgoR0BuosLWai';
-var BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
+// ─── GITHUB GIST CONFIG ──────────────────────────────────
+var GIST_ID    = '16b357d8fc9917dc1e37f8825998cf8c';
+var GIST_TOKEN = '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'; // replace if regenerated
+var GIST_FILE  = 'stormtrack-alerts.json';
+var GIST_URL   = 'https://api.github.com/gists/' + GIST_ID;
+var GIST_RAW   = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE;
 
 // ─── STATE ────────────────────────────────────────────────
 var PIN = localStorage.getItem('st_pin') || '6211';
@@ -409,7 +411,6 @@ var wData = null, wLayer = 'rain';
 var zTool = 'draw', zoneLatLngs = [], adminDrawing = false;
 var expT = {};
 var isSyncing = false;
-var lastBinVersion = null;
 
 var ICO  = {warning:'⚠️',danger:'🚨',info:'ℹ️',tornado:'🌪️',flood:'🌊',heat:'🌡️',snow:'❄️',fog:'🌫️',freeze:'🧊'};
 var LBL  = {warning:'Warning',danger:'Danger',info:'Advisory',tornado:'Tornado',flood:'Flood',heat:'Heat',snow:'Snow',fog:'Fog',freeze:'Freeze'};
@@ -417,9 +418,7 @@ var TCOL = {warning:'#ffb74d',danger:'#ef5350',info:'#4fc3f7',tornado:'#ce93d8',
 var FCOL = {warning:'rgba(255,143,0,',danger:'rgba(229,57,53,',info:'rgba(79,195,247,',tornado:'rgba(156,39,176,',flood:'rgba(21,101,192,',heat:'rgba(216,67,21,',snow:'rgba(120,144,156,',fog:'rgba(96,125,139,',freeze:'rgba(2,136,209,'};
 var DT   = ['danger','tornado','flood','heat'];
 
-// ─── JSONBIN SYNC ─────────────────────────────────────────
-// PUBLIC bin — reads need no key (no CORS preflight)
-// Writes use the master key (admin only, from user gesture)
+// ─── GIST SYNC ────────────────────────────────────────────
 function showSyncStatus(msg, color) {
   var el = document.getElementById('syncStatus');
   if (!el) return;
@@ -428,18 +427,20 @@ function showSyncStatus(msg, color) {
 }
 
 function pushAlerts() {
+  // Write alerts to Gist via proxy — admin only
   isSyncing = true;
   showSyncStatus('Saving...', 'var(--a)');
-  // PUT with Content-Type + master key — works from admin panel
-  fetch(BIN_URL, {
-    method: 'PUT',
+  var files = {};
+  files[GIST_FILE] = { content: JSON.stringify({ alerts: alerts }) };
+  var proxyPush = 'https://corsproxy.io/?' + encodeURIComponent(GIST_URL);
+  fetch(proxyPush, {
+    method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'X-Master-Key': BIN_KEY,
-      'X-Bin-Versioning': 'false',
-      'X-Bin-Private': 'false'
+      'Authorization': 'token ' + GIST_TOKEN,
+      'Accept': 'application/vnd.github.v3+json'
     },
-    body: JSON.stringify({ alerts: alerts })
+    body: JSON.stringify({ files: files })
   })
   .then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -452,27 +453,25 @@ function pushAlerts() {
   })
   .catch(function(e) {
     isSyncing = false;
-    showSyncStatus('Save failed — check key', 'var(--dng)');
-    console.error('JSONBin push error:', e);
+    showSyncStatus('Save failed', 'var(--dng)');
+    console.error('Gist push error:', e);
   });
 }
 
 function pullAlerts() {
-  // Public bin read — NO auth header so no CORS preflight
-  // The bin must be set to Public on jsonbin.io
-  fetch(BIN_URL + '/latest', {
-    method: 'GET',
-    headers: { 'X-Bin-Meta': 'false' }
-  })
+  // Fetch via CORS proxy — bypasses GitHub API CORS restrictions
+  var rawUrl = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE;
+  var proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(rawUrl) + '&_=' + Date.now();
+  fetch(proxyUrl)
   .then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
+    return r.text();
   })
-  .then(function(data) {
-    var remote = (data && data.record && data.record.alerts)
-      ? data.record.alerts
-      : (data && data.alerts) ? data.alerts : [];
-    // Parse dates back
+  .then(function(text) {
+    var parsed;
+    try { parsed = JSON.parse(text); } catch(e) { parsed = { alerts: [] }; }
+    var remote = parsed.alerts || [];
+    // Parse date strings back to Date objects
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
       if (a.expires) a.expires = new Date(a.expires);
@@ -489,15 +488,16 @@ function pullAlerts() {
       if (a.active && !a.expired && a.expires && new Date(a.expires) > now)
         expT[a.id] = setTimeout(function(){ expA(a.id); }, new Date(a.expires) - now);
     });
-    // Notify about any NEW alerts we haven't seen before
+    // Fire notifications for new alerts in user's zone
     var notified = JSON.parse(localStorage.getItem('st_notified') || '[]');
-    var prevIds = window._prevAlertIds || [];
+    var prevIds  = window._prevAlertIds || [];
     remote.forEach(function(a) {
-      if (a.active && !a.expired && alertAppliesToCity(a)) {
-        var isNew = prevIds.indexOf(String(a.id)) < 0 && notified.indexOf(String(a.id)) < 0;
+      if (a.active && !a.expired) {
+        var isNew    = prevIds.indexOf(String(a.id)) < 0 && notified.indexOf(String(a.id)) < 0;
+        var inMyArea = alertAppliesToCity(a);
         if (isNew) {
           notified.push(String(a.id));
-          if (Notification.permission === 'granted') {
+          if (inMyArea && Notification.permission === 'granted') {
             fireNotification(a);
           }
         }
@@ -514,14 +514,12 @@ function pullAlerts() {
   })
   .catch(function(e) {
     showSyncStatus('Offline', 'var(--dng)');
-    console.error('JSONBin pull error:', e);
+    console.error('Gist pull error:', e);
   });
 }
 
-// save() now pushes to JSONBin — called by admin actions
 function save() {
   pushAlerts();
-  // Also keep local backup
   try { localStorage.setItem('st_als_bak', JSON.stringify(alerts)); } catch(e) {}
 }
 
@@ -1236,33 +1234,45 @@ function editA(id) {
 // ─── GPS AUTO-LOCATION ────────────────────────────────────
 function useGPS() {
   var btn = document.getElementById('gpsBtn');
-  if (!navigator.geolocation) { alert('GPS not supported by your browser.'); return; }
+  if (!navigator.geolocation) { alert('GPS not supported on this browser.'); return; }
   btn.textContent = '⏳';
   btn.disabled = true;
   navigator.geolocation.getCurrentPosition(
     function(pos) {
-      var lat = pos.coords.latitude.toFixed(4);
-      var lon = pos.coords.longitude.toFixed(4);
+      var lat = pos.coords.latitude;
+      var lon = pos.coords.longitude;
+      // Set global coords immediately for zone checks
+      userLat = lat; userLon = lon;
       btn.textContent = '📍'; btn.disabled = false;
-      // Reverse geocode using Open-Meteo geocoding (no key)
-      fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json')
+      var latS = lat.toFixed(4), lonS = lon.toFixed(4);
+      fetch('https://nominatim.openstreetmap.org/reverse?lat='+latS+'&lon='+lonS+'&format=json&accept-language=en&zoom=14')
         .then(function(r){ return r.json(); })
         .then(function(d){
-          var city = (d.address && (d.address.city || d.address.town || d.address.village || d.address.county)) || (lat+','+lon);
-          document.getElementById('locIn').value = city;
-          loadWx(city);
+          var addr = d.address || {};
+          var parts = [];
+          if (addr.house_number && addr.road) parts.push(addr.house_number + ' ' + addr.road);
+          else if (addr.road) parts.push(addr.road);
+          var city = addr.city || addr.town || addr.village || addr.suburb || addr.county || '';
+          if (city) parts.push(city);
+          if (addr.state) parts.push(addr.state);
+          var displayName = parts.length ? parts.join(', ') : (latS+','+lonS);
+          document.getElementById('locIn').value = displayName;
+          updateUserMarker(lat, lon, city || displayName);
+          fetchWeatherData(lat, lon, city || displayName, addr.state||'', addr.country||'');
+          // Re-check alerts now that we have precise location
+          renderA(); chkRed();
         })
         .catch(function(){
-          // Fallback: load by coordinates directly
-          document.getElementById('locIn').value = lat+','+lon;
-          loadWx(lat+','+lon);
+          document.getElementById('locIn').value = latS+','+lonS;
+          updateUserMarker(lat, lon, 'Your Location');
+          fetchWeatherData(lat, lon, 'Your Location', '', '');
         });
     },
     function(err) {
       btn.textContent = '📍'; btn.disabled = false;
-      alert('Could not get your location: ' + err.message);
+      alert('Could not get your location.\n\n' + err.message + '\n\nMake sure location permissions are allowed for this site.');
     },
-    { timeout: 10000 }
+    { timeout: 10000, enableHighAccuracy: true }
   );
 }
 function actA(id) {
@@ -1460,15 +1470,17 @@ function loadWx(city) {
   var coordMatch = city.match(/^(-?[\d.]+),\s*(-?[\d.]+)$/);
   if (coordMatch) {
     var lat0 = parseFloat(coordMatch[1]), lon0 = parseFloat(coordMatch[2]);
+    userLat = lat0; userLon = lon0;
     fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat0+'&lon='+lon0+'&format=json&zoom=10')
       .then(function(r){ return r.json(); })
       .then(function(d){
         var addr = d.address || {};
-        var n = addr.city || addr.town || addr.village || addr.county || city;
+        var n = addr.city || addr.town || addr.village || addr.suburb || addr.county || city;
         var reg = addr.state || addr.country || '';
         var cntry = addr.country_code ? addr.country_code.toUpperCase() : '';
         updateUserMarker(lat0, lon0, n);
         fetchWeatherData(lat0, lon0, n, reg, cntry);
+        renderA(); chkRed();
       })
       .catch(function(){ fetchWeatherData(lat0, lon0, city, '', ''); });
     return;
@@ -1481,11 +1493,15 @@ function loadWx(city) {
       var res = results[0];
       var lat1 = parseFloat(res.lat), lon1 = parseFloat(res.lon);
       var addr = res.address || {};
-      var n = addr.city || addr.town || addr.village || addr.county || res.display_name.split(',')[0];
+      var n = addr.city || addr.town || addr.village || addr.suburb || addr.county || res.display_name.split(',')[0];
       var reg = addr.state || '';
       var cntry = addr.country || '';
+      // Store for zone checks
+      userLat = lat1; userLon = lon1;
       updateUserMarker(lat1, lon1, n);
       fetchWeatherData(lat1, lon1, n, reg, cntry);
+      // Re-evaluate alerts with new location
+      renderA(); chkRed();
     })
     .catch(function(e){
       document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
@@ -1564,23 +1580,44 @@ window.addEventListener('resize', function() {
 window.addEventListener('load', function() {
   document.getElementById('adminMap').style.display = 'none';
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
-  // Auto-detect GPS location on load
+  // Auto-detect GPS location on load — use coordinates directly, no re-geocoding drift
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       function(pos) {
-        var lat = pos.coords.latitude.toFixed(4);
-        var lon = pos.coords.longitude.toFixed(4);
-        fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=en')
+        var lat = pos.coords.latitude;
+        var lon = pos.coords.longitude;
+        // Store immediately so zone checks work right away
+        userLat = lat; userLon = lon;
+        var latS = lat.toFixed(4), lonS = lon.toFixed(4);
+        // Reverse geocode just for the display name
+        fetch('https://nominatim.openstreetmap.org/reverse?lat='+latS+'&lon='+lonS+'&format=json&accept-language=en&zoom=14')
           .then(function(r){ return r.json(); })
           .then(function(d){
-            var city = (d.address && (d.address.city || d.address.town || d.address.village || d.address.county)) || (lat+','+lon);
-            document.getElementById('locIn').value = city;
-            loadWx(city);
+            var addr = d.address || {};
+            // Build a nice display: "123 Main St, Springfield, IL" or just city
+            var parts = [];
+            if (addr.road) parts.push(addr.road);
+            if (addr.house_number) parts[0] = addr.house_number + ' ' + (parts[0]||'');
+            var city = addr.city || addr.town || addr.village || addr.suburb || addr.county || '';
+            if (city) parts.push(city);
+            if (addr.state) parts.push(addr.state);
+            var displayName = parts.length ? parts.join(', ') : (latS+','+lonS);
+            document.getElementById('locIn').value = displayName;
+            // Fetch weather by exact coordinates — no re-geocoding
+            updateUserMarker(lat, lon, city || displayName);
+            fetchWeatherData(lat, lon, city || displayName, addr.state||'', addr.country||'');
           })
-          .catch(function(){ loadWx('New York'); });
+          .catch(function(){
+            // Coords fallback
+            updateUserMarker(lat, lon, 'Your Location');
+            fetchWeatherData(lat, lon, 'Your Location', '', '');
+          });
       },
-      function(){ loadWx('New York'); },
-      { timeout: 6000, maximumAge: 300000 }
+      function(err) {
+        console.log('GPS denied or failed:', err.message);
+        loadWx('New York');
+      },
+      { timeout: 8000, maximumAge: 60000, enableHighAccuracy: true }
     );
   } else {
     loadWx('New York');
