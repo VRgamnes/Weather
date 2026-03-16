@@ -493,8 +493,8 @@ input,textarea,select{font-size:16px!important}
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
-    <button class="mc-btn" id="lightningBtn" onclick="toggleLightning(this)">⚡ Lightning</button>
-    <button class="mc-btn" id="mapClickBtn" onclick="toggleMapClick(this)" title="Tap map to get weather">🎯 Tap</button>
+    <button class="mc-btn" id="lightningBtn" onclick="toggleLightningBtn(this)">⚡ Lightning</button>
+    <button class="mc-btn" id="mapClickBtn" onclick="enableMapClickBtn(this)" title="Tap map to get weather">🎯 Tap</button>
     <button class="mc-btn" id="wLayerLight" onclick="setWLayer('lightning',this)">⚡ Lightning</button>
     <button class="mc-btn" onclick="toggleCityLabels&&toggleCityLabels()">🏙 Cities</button>
     <button class="mc-btn" onclick="dropStormPin()">📍 Storm Pin</button>
@@ -907,7 +907,7 @@ function pullAlerts() {
       if (parsed.settings) applySettings(parsed.settings);
     }
     updateStats();
-    trackVisit();
+    pingUserCount();
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
@@ -1789,6 +1789,86 @@ function clearAllAlerts() {
 // ── FAVORITES ────────────────────────────────────────────
 var favorites = JSON.parse(localStorage.getItem('st_favs') || '["New York"]');
 function saveFavs(){ try{localStorage.setItem('st_favs',JSON.stringify(favorites));}catch(e){} }
+function showWTab(tab, btn) {
+  document.querySelectorAll('.wtab').forEach(function(b){b.classList.remove('on');});
+  if (btn) btn.classList.add('on');
+  if (!wData) return;
+  if (tab === 'main') { renderWx(wData); }
+  else if (tab === 'feels') { renderFeelsLikeTab(); }
+  else if (tab === 'air') { renderAirPollenTab(); }
+  else if (tab === 'hurricane') { renderHurricaneCard(); }
+}
+
+function renderFeelsLikeTab() {
+  var cur = wData.w.current, daily = wData.w.daily;
+  var feels = Math.round(cur.apparent_temperature), temp = Math.round(cur.temperature_2m);
+  var diff = feels - temp, diffStr = diff > 0 ? '+' + diff + '°' : diff + '°';
+  var hum = cur.relative_humidity_2m, wind = Math.round(cur.wind_speed_10m);
+  var hi = temp >= 80 ? Math.round(-42.379+2.049*temp+10.143*hum-.2248*temp*hum-.00684*temp*temp-.0548*hum*hum+.001*temp*temp*hum+.00085*temp*hum*hum-.00000199*temp*temp*hum*hum) : temp;
+  var wc = (temp<=50&&wind>3) ? Math.round(35.74+0.6215*temp-35.75*Math.pow(wind,0.16)+0.4275*temp*Math.pow(wind,0.16)) : temp;
+  var uv = Math.round(daily.uv_index_max[0]||0);
+  var comfort = feels<=32?'🥶 Dangerously Cold':feels<=50?'❄️ Cold':feels<=65?'😊 Comfortable':feels<=80?'😅 Warm':feels<=95?'🥵 Hot':'🔥 Dangerously Hot';
+  var uvD = uv<=2?'Low':uv<=5?'Moderate':uv<=7?'High':'Very High';
+  var uvTip = uv<=2?'Safe — no protection needed':uv<=5?'Wear SPF 30+':uv<=7?'Limit midday sun, SPF 50+':'Stay indoors 10am–4pm';
+  document.getElementById('wC').innerHTML =
+    '<div class="feels-card">' +
+    '<div class="feels-row">' +
+      '<div><div class="feels-label">Feels Like</div><div class="feels-big">'+feels+'°F</div><div style="font-size:12px;color:var(--mut)">Actual: '+temp+'°F ('+diffStr+')</div></div>' +
+      '<div style="text-align:right"><div style="font-size:32px">'+(feels<=32?'🥶':feels<=65?'😊':feels<=80?'😅':'🥵')+'</div><div style="font-size:13px;color:var(--a);margin-top:4px">'+comfort+'</div></div>' +
+    '</div>' +
+    '<div class="feels-grid">' +
+      '<div class="feels-item"><div class="feels-item-v">'+hi+'°</div><div class="feels-item-l">Heat Index</div></div>' +
+      '<div class="feels-item"><div class="feels-item-v">'+wc+'°</div><div class="feels-item-l">Wind Chill</div></div>' +
+      '<div class="feels-item"><div class="feels-item-v">'+hum+'%</div><div class="feels-item-l">Humidity</div></div>' +
+      '<div class="feels-item"><div class="feels-item-v">'+wind+' mph</div><div class="feels-item-l">Wind Speed</div></div>' +
+    '</div></div>' +
+    '<div class="sc" style="margin-bottom:13px"><div class="sl">UV Index</div><div class="sv">'+uv+'<span class="su"> '+uvD+'</span></div>' +
+    '<div style="margin-top:8px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+Math.min(uv/11*100,100)+'%;background:'+(uv<=2?'#43a047':uv<=5?'#fb8c00':uv<=7?'#ef5350':'#b71c1c')+';border-radius:3px"></div></div>' +
+    '<div style="font-size:11px;color:var(--mut);margin-top:5px">'+uvTip+'</div></div>';
+}
+
+function renderAirPollenTab() {
+  if (!wData) return;
+  document.getElementById('wC').innerHTML = '<div class="ldg"><span>🌿</span>Loading air quality...</div>';
+  var lat = wData.lat, lon = wData.lon;
+  fetch('https://air-quality-api.open-meteo.com/v1/air-quality?latitude='+lat+'&longitude='+lon+'&current=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,dust,grass_pollen,birch_pollen,ragweed_pollen&timezone=auto')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var c=d.current||{};
+      var aqi=Math.round(c.us_aqi||0);
+      var aqiCol=aqi<=50?'#43a047':aqi<=100?'#fb8c00':aqi<=150?'#ef5350':'#b71c1c';
+      var aqiLbl=aqi<=50?'Good':aqi<=100?'Moderate':aqi<=150?'Unhealthy for Sensitive':'Unhealthy';
+      var aqiTip=aqi<=50?'Air quality is satisfactory.':aqi<=100?'Sensitive people may be affected.':'Everyone may experience health effects.';
+      function pollenLvl(v){if(!v||v<=10)return{l:'Low',c:'#43a047',w:10};if(v<=50)return{l:'Moderate',c:'#fb8c00',w:40};if(v<=200)return{l:'High',c:'#ef5350',w:70};return{l:'Very High',c:'#b71c1c',w:100};}
+      var g=pollenLvl(c.grass_pollen), b=pollenLvl(c.birch_pollen), r=pollenLvl(c.ragweed_pollen);
+      var html='<div style="padding:10px 0">' +
+        '<div style="background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:10px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+            '<div><div style="font-size:28px;font-weight:500;color:'+aqiCol+'">'+aqi+'</div><div style="font-size:12px;color:'+aqiCol+'">'+aqiLbl+'</div></div>' +
+            '<div style="font-size:12px;color:var(--mut);text-align:right;max-width:160px">'+aqiTip+'</div>' +
+          '</div>' +
+          '<div style="height:6px;background:linear-gradient(to right,#43a047,#fb8c00,#ef5350,#b71c1c);border-radius:3px;position:relative">' +
+            '<div style="position:absolute;top:-5px;left:'+Math.min(aqi/300*100,100)+'%;width:16px;height:16px;background:#fff;border-radius:50%;border:2px solid '+aqiCol+';transform:translateX(-50%)"></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px">' +
+            [['PM2.5',Math.round(c.pm2_5||0)+'μg'],['PM10',Math.round(c.pm10||0)+'μg'],['O₃',Math.round(c.ozone||0)+'μg'],['NO₂',Math.round(c.nitrogen_dioxide||0)+'μg'],['Dust',Math.round(c.dust||0)+'μg'],['AQI',aqi]].map(function(s){
+              return '<div style="background:rgba(255,255,255,.05);border-radius:7px;padding:6px;text-align:center"><div style="font-weight:500;font-size:13px">'+s[1]+'</div><div style="font-size:10px;color:var(--mut)">'+s[0]+'</div></div>';
+            }).join('') +
+          '</div>' +
+        '</div>' +
+        '<div class="pollen-card">' +
+          '<div class="st">Pollen Levels</div>' +
+          [['🌾 Grass Pollen',g],['🌲 Tree/Birch',b],['🌻 Ragweed',r]].map(function(p){
+            return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>'+p[0]+'</span><span style="color:'+p[1].c+';font-weight:500">'+p[1].l+'</span></div><div class="pollen-bar-bg"><div class="pollen-bar" style="width:'+p[1].w+'%;background:'+p[1].c+'"></div></div></div>';
+          }).join('') +
+        '</div></div>';
+      document.getElementById('wC').innerHTML = html;
+    })
+    .catch(function(){
+      document.getElementById('wC').innerHTML='<div class="err">Could not load air quality data.</div>';
+    });
+}
+
 function renderFavBar(){
   var bar = document.getElementById('favBar'); if(!bar) return;
   var cur = document.getElementById('locIn').value.trim();
@@ -1818,6 +1898,20 @@ function loadFav(f){
 }
 
 // ── SHARE ALERT ──────────────────────────────────────────
+function shareWeather() {
+  if (!wData) return;
+  var cur = wData.w.current;
+  var text = '⛈ StormTrack Weather\n' + wData.name + ', ' + (wData.region||wData.country) + '\n' +
+    Math.round(cur.temperature_2m) + '°F · ' + wDsc(cur.weather_code) + '\n' +
+    'Feels like ' + Math.round(cur.apparent_temperature) + '°F\n\n' +
+    'Live weather & alerts: https://VRgamnes.github.io/stormtrack';
+  if (navigator.share) {
+    navigator.share({ title: 'StormTrack Weather', text: text }).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(text).then(function(){ alert('Copied to clipboard!'); }).catch(function(){ alert(text); });
+  }
+}
+
 function shareAlert(id){
   var a=alerts.find(function(x){return x.id===id;}); if(!a) return;
   var txt = '⛈ StormTrack Alert\n'+getAlertLabel(a)+': '+a.title+'\n'+a.msg+'\nhttps://VRgamnes.github.io/stormtrack';
@@ -1871,6 +1965,36 @@ function dropStormPin(lat,lon,label){
 
 // ── LIGHTNING LAYER ──────────────────────────────────────
 var lightningLayer=null, lightningMarkers=[];
+function toggleLightningBtn(btn) {
+  if (lightningMarkers.length > 0) {
+    clearLightningLayer();
+    if (btn) btn.classList.remove('on');
+  } else {
+    showLightningLayer();
+    if (btn) btn.classList.add('on');
+  }
+}
+
+function enableMapClickBtn(btn) {
+  var enabled = btn && btn.classList.contains('on');
+  if (enabled) {
+    // Turn off
+    if (wMap) wMap.off('click', onMapClick);
+    if (wMap) wMap.getContainer().style.cursor = '';
+    if (btn) btn.classList.remove('on');
+  } else {
+    // Turn on
+    if (wMap) { wMap.on('click', onMapClick); wMap.getContainer().style.cursor = 'crosshair'; }
+    if (btn) btn.classList.add('on');
+  }
+}
+
+function onMapClick(e) {
+  var lat = e.latlng.lat.toFixed(4), lon = e.latlng.lng.toFixed(4);
+  document.getElementById('locIn').value = lat + ',' + lon;
+  loadWx(lat + ',' + lon);
+}
+
 function showLightningLayer(){
   if(!wMap) return;
   // Simulated lightning strikes based on current precip data
