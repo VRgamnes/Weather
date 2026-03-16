@@ -898,11 +898,16 @@ function pullAlerts() {
   .then(function(parsed) {
     // Worker returned an error object instead of alerts
     if (parsed.error) throw new Error('Worker error: ' + parsed.error + ' — ' + (parsed.detail||'').slice(0,120));
-    var remote = parsed.alerts || [];
-    if (parsed.settings) applySettings(parsed.settings);
+    // Handle both old format (just alerts array) and new (object with alerts+settings)
+    var remote = [];
+    if (Array.isArray(parsed)) {
+      remote = parsed;
+    } else {
+      remote = parsed.alerts || [];
+      if (parsed.settings) applySettings(parsed.settings);
+    }
     updateStats();
-    // Track user count — increment visit counter in settings
-    trackUserVisit(parsed.userVisits || {});
+    trackVisit();
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
