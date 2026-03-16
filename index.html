@@ -418,6 +418,8 @@ var FCOL = {warning:'rgba(255,143,0,',danger:'rgba(229,57,53,',info:'rgba(79,195
 var DT   = ['danger','tornado','flood','heat'];
 
 // ─── JSONBIN SYNC ─────────────────────────────────────────
+// PUBLIC bin — reads need no key (no CORS preflight)
+// Writes use the master key (admin only, from user gesture)
 function showSyncStatus(msg, color) {
   var el = document.getElementById('syncStatus');
   if (!el) return;
@@ -426,19 +428,23 @@ function showSyncStatus(msg, color) {
 }
 
 function pushAlerts() {
-  // Write alerts array to JSONBin
   isSyncing = true;
   showSyncStatus('Saving...', 'var(--a)');
+  // PUT with Content-Type + master key — works from admin panel
   fetch(BIN_URL, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       'X-Master-Key': BIN_KEY,
-      'X-Bin-Versioning': 'false'
+      'X-Bin-Versioning': 'false',
+      'X-Bin-Private': 'false'
     },
     body: JSON.stringify({ alerts: alerts })
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(function() {
     isSyncing = false;
     showSyncStatus('Synced ✓', 'var(--ok)');
@@ -446,19 +452,26 @@ function pushAlerts() {
   })
   .catch(function(e) {
     isSyncing = false;
-    showSyncStatus('Sync error', 'var(--dng)');
+    showSyncStatus('Save failed — check key', 'var(--dng)');
     console.error('JSONBin push error:', e);
   });
 }
 
 function pullAlerts() {
-  // Read alerts from JSONBin — called on load and every 30s for all users
+  // Public bin read — NO auth header so no CORS preflight
+  // The bin must be set to Public on jsonbin.io
   fetch(BIN_URL + '/latest', {
-    headers: { 'X-Master-Key': BIN_KEY, 'X-Bin-Meta': 'false' }
+    method: 'GET',
+    headers: { 'X-Bin-Meta': 'false' }
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(function(data) {
-    var remote = (data && data.alerts) ? data.alerts : [];
+    var remote = (data && data.record && data.record.alerts)
+      ? data.record.alerts
+      : (data && data.alerts) ? data.alerts : [];
     // Parse dates back
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
@@ -1477,19 +1490,6 @@ function loadWx(city) {
     .catch(function(e){
       document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
     });
-  return;
-  // (below line never runs — replaced by Nominatim above)
-  fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(city)+'&count=1&language=en&format=json')
-    .then(function(r){if(!r.ok)throw new Error('Geocode error '+r.status);return r.json();})
-    .then(function(gd){
-      if(!gd.results||!gd.results.length) throw new Error('City not found: "'+city+'"');
-      var loc=gd.results[0];
-      var lat=loc.latitude, lon=loc.longitude, name=loc.name, region=loc.admin1||'', country=loc.country||'';
-      updateUserMarker(lat, lon, name);
-      fetchWeatherData(lat, lon, name, region, country);
-    }).catch(function(e){
-      document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or address.</small></div>';
-    });
 }
 
 function fetchWeatherData(lat, lon, name, region, country) {
@@ -1501,7 +1501,6 @@ function fetchWeatherData(lat, lon, name, region, country) {
       return fetch(url)
         .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
         .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};renderWx(wData);setLastUpdated();chkRed();});
-    });
 }
 
 function renderWx(d) {
