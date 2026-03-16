@@ -324,6 +324,28 @@ input,textarea,select{font-size:16px!important}
 </div>
 
 <!-- PIN PAGE -->
+<!-- NOTIFICATION PROMPT — shown first time user opens app -->
+<div id="notifPrompt" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,22,40,0.97);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center">
+  <div style="font-size:56px;margin-bottom:16px">🔔</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--a);margin-bottom:10px">Stay Alert</div>
+  <div style="font-size:15px;color:var(--txt);margin-bottom:8px;font-weight:500">Get notified about severe weather in your area</div>
+  <div style="font-size:13px;color:var(--mut);margin-bottom:32px;line-height:1.6">StormTrack will send you push notifications when emergency alerts are issued for your location — even when the app is closed.</div>
+  <button onclick="enableNotifs()" style="width:100%;max-width:280px;background:var(--a);border:none;border-radius:12px;color:#0a1628;font-size:16px;font-weight:500;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:12px">Enable Notifications</button>
+  <button onclick="dismissNotifPrompt()" style="width:100%;max-width:280px;background:none;border:1px solid var(--bdr);border-radius:12px;color:var(--mut);font-size:14px;padding:12px;cursor:pointer;font-family:'DM Sans',sans-serif">Not now</button>
+  <div style="font-size:11px;color:var(--mut);margin-top:16px;opacity:0.6">You can enable notifications later from the weather screen</div>
+</div>
+
+<!-- NOTIFICATION MINI BANNER — shown in weather page if not enabled -->
+<div id="notifBanner" style="display:none;background:rgba(79,195,247,0.1);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin:10px 14px 0;align-items:center;gap:10px">
+  <span style="font-size:18px">🔔</span>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:13px;font-weight:500">Enable alert notifications</div>
+    <div style="font-size:11px;color:var(--mut)">Get notified even when app is closed</div>
+  </div>
+  <button onclick="enableNotifs()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0">Enable</button>
+  <button onclick="document.getElementById('notifBanner').style.display='none'" style="background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">×</button>
+</div>
+
 <div class="pinpg" id="pinPg">
   <div class="ptl">Admin Access</div>
   <div class="psb">Enter your PIN</div>
@@ -479,12 +501,50 @@ function pullAlerts() {
     Object.keys(expT).forEach(function(k){ clearTimeout(expT[k]); });
     expT = {};
     var now = new Date();
+    var needsSave = false;
     alerts.forEach(function(a) {
-      if (a.scheduled && a.sendAt && new Date(a.sendAt) > now)
-        setTimeout(function(){ actA(a.id); }, new Date(a.sendAt) - now);
-      if (a.active && !a.expired && a.expires && new Date(a.expires) > now)
-        expT[a.id] = setTimeout(function(){ expA(a.id); }, new Date(a.expires) - now);
+      // If scheduled and send time has ALREADY passed — activate it now
+      // This handles the case where the app was closed during the scheduled window
+      if (a.scheduled && a.sendAt && new Date(a.sendAt) <= now) {
+        a.active = true;
+        a.scheduled = false;
+        needsSave = true;
+      }
+      // If scheduled and send time is still in the future — set a timer
+      if (a.scheduled && a.sendAt && new Date(a.sendAt) > now) {
+        (function(id) {
+          setTimeout(function() {
+            // When timer fires, activate and push update to everyone
+            var al = alerts.find(function(x){ return x.id === id; });
+            if (al && al.scheduled) {
+              al.active = true;
+              al.scheduled = false;
+              save(); // push to Gist so all users see it
+              renderA(); renderH();
+              addAlertZonesToMap(wMap);
+              if (aMap) addAlertZonesToMap(aMap);
+              chkRed();
+            }
+          }, new Date(a.sendAt) - now);
+        })(a.id);
+      }
+      // Expiry timer
+      if (a.active && !a.expired && a.expires && new Date(a.expires) > now) {
+        (function(id) {
+          expT[id] = setTimeout(function() { expA(id); }, new Date(a.expires) - now);
+        })(a.id);
+      }
+      // If active and expires has already passed — expire it now
+      if (a.active && !a.expired && a.expires && new Date(a.expires) <= now) {
+        a.active = false;
+        a.expired = true;
+        needsSave = true;
+      }
     });
+    // If any alerts changed state, push update to Gist
+    if (needsSave) {
+      save();
+    }
     // Fire notifications for new alerts in user's zone
     var notified = JSON.parse(localStorage.getItem('st_notified') || '[]');
     var prevIds  = window._prevAlertIds || [];
@@ -1149,18 +1209,27 @@ function chgPin() {
 }
 
 // ─── NOTIFICATIONS ───────────────────────────────────────
+function dismissNotifPrompt() {
+  var p = document.getElementById('notifPrompt');
+  if (p) p.style.display = 'none';
+  localStorage.setItem('st_notif_dismissed', '1');
+  checkShowNotifBanner(); // show mini banner instead
+}
+
 function enableNotifs() {
+  var prompt = document.getElementById('notifPrompt');
+  if (prompt) prompt.style.display = 'none';
   if (!('Notification' in window)) {
     alert('Notifications not supported.\n\nOn iPhone: Add to Home Screen first (Share → Add to Home Screen), then try again.');
     return;
   }
   if (Notification.permission === 'denied') {
-    alert('Notifications are blocked.\n\nTo fix:\n• iPhone: Settings → Safari → Notifications → StormTrack → Allow\n• Android: tap the lock icon in address bar → Notifications → Allow\nThen reload the app.');
+    alert('Notifications are blocked.\n\nTo fix:\n• iPhone: Settings → Safari → Notifications → StormTrack → Allow\n• Android: tap lock icon in address bar → Notifications → Allow\nThen reload the app.');
     return;
   }
   if (Notification.permission === 'granted') {
     localStorage.setItem('st_notif', 'granted');
-    document.getElementById('notifBanner').style.display = 'none';
+    if (document.getElementById('notifBanner')) document.getElementById('notifBanner').style.display = 'none';
     showNotifStatus();
     return;
   }
@@ -1203,21 +1272,28 @@ function showNotifStatus() {
 
 function checkShowNotifBanner() {
   var banner = document.getElementById('notifBanner');
-  if (!banner) return;
-  // Always reflect real browser permission state
-  if (!('Notification' in window)) { banner.style.display = 'none'; return; }
+  var prompt = document.getElementById('notifPrompt');
+  if (!('Notification' in window)) {
+    if (banner) banner.style.display = 'none';
+    if (prompt) prompt.style.display = 'none';
+    return;
+  }
   if (Notification.permission === 'granted') {
-    banner.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    if (prompt) prompt.style.display = 'none';
     localStorage.setItem('st_notif', 'granted');
     showNotifStatus();
     return;
   }
   if (Notification.permission === 'denied') {
-    banner.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    if (prompt) prompt.style.display = 'none';
     return;
   }
-  // Not yet asked — show the banner
-  banner.style.display = 'flex';
+  // Permission not yet granted — show mini banner (prompt already shown on first load)
+  if (banner && localStorage.getItem('st_notif_dismissed')) {
+    banner.style.display = 'flex';
+  }
 }
 
 // ─── TOGGLES ─────────────────────────────────────────────
@@ -1735,6 +1811,16 @@ window.addEventListener('load', function() {
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
   showNotifStatus();
+  // Show full notification prompt on first visit
+  if ('Notification' in window
+      && Notification.permission === 'default'
+      && !localStorage.getItem('st_notif_dismissed')
+      && !localStorage.getItem('st_notif')) {
+    setTimeout(function() {
+      var p = document.getElementById('notifPrompt');
+      if (p) p.style.display = 'flex';
+    }, 2000); // 2s delay so app loads first
+  }
 
   // ── SERVICE WORKER + NOTIFICATIONS ──────────────────────
   if ('serviceWorker' in navigator) {
