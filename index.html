@@ -401,12 +401,9 @@ window.onerror = function(msg,src,line,col,err){
 };
 </script>
 <script>
-// ─── GITHUB GIST CONFIG ──────────────────────────────────
-var GIST_ID    = '16b357d8fc9917dc1e37f8825998cf8c';
-var GIST_TOKEN = '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'; // replace if regenerated
-var GIST_FILE  = 'stormtrack-alerts.json';
-var GIST_URL   = 'https://api.github.com/gists/' + GIST_ID;
-var GIST_RAW   = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE;
+// ─── CLOUDFLARE WORKER API ───────────────────────────────
+// All reads and writes go through this worker — no CORS issues
+var WORKER_URL = 'https://stormtrack-api.spuddyboy5.workers.dev';
 
 // ─── STATE ────────────────────────────────────────────────
 var PIN = localStorage.getItem('st_pin') || '6211';
@@ -434,66 +431,35 @@ function showSyncStatus(msg, color) {
 function pushAlerts() {
   isSyncing = true;
   showSyncStatus('Saving...', 'var(--a)');
-  var files = {};
-  files[GIST_FILE] = { content: JSON.stringify({ alerts: alerts }) };
-  var body = JSON.stringify({ files: files });
-
-  // Try direct API first, fall back to two proxies
-  var directUrl  = GIST_URL;
-  var proxy1Url  = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(GIST_URL);
-  var proxy2Url  = 'https://corsproxy.io/?' + encodeURIComponent(GIST_URL);
-
-  var headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'token ' + GIST_TOKEN,
-    'Accept': 'application/vnd.github.v3+json'
-  };
-
-  function tryPatch(url) {
-    return fetch(url, { method: 'PATCH', headers: headers, body: body })
-      .then(function(r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      });
-  }
-
-  tryPatch(directUrl)
-    .catch(function() { return tryPatch(proxy1Url); })
-    .catch(function() { return tryPatch(proxy2Url); })
-    .then(function() {
-      isSyncing = false;
-      showSyncStatus('Synced ✓', 'var(--ok)');
-      setTimeout(function(){ showSyncStatus('Live', 'var(--ok)'); }, 2000);
-      // Pull immediately so all users see the update
-      setTimeout(pullAlerts, 1000);
-    })
-    .catch(function(e) {
-      isSyncing = false;
-      showSyncStatus('Save failed — check connection', 'var(--dng)');
-      console.error('Gist push error:', e);
-    });
-}
-
-function fetchFromUrl(url, opts) {
-  return fetch(url, opts).then(function(r) {
+  fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alerts: alerts })
+  })
+  .then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.text();
+    return r.json();
+  })
+  .then(function() {
+    isSyncing = false;
+    showSyncStatus('Synced ✓', 'var(--ok)');
+    setTimeout(function(){ showSyncStatus('Live', 'var(--ok)'); }, 2000);
+    setTimeout(pullAlerts, 500);
+  })
+  .catch(function(e) {
+    isSyncing = false;
+    showSyncStatus('Save failed', 'var(--dng)');
+    console.error('Push error:', e);
   });
 }
 
 function pullAlerts() {
-  var ts = Date.now();
-  var rawUrl  = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE + '?t=' + ts;
-  var proxy1  = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE) + '&t=' + ts;
-  var proxy2  = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE);
-
-  // Try raw URL first, fall back to proxies
-  fetchFromUrl(rawUrl, { cache: 'no-store', mode: 'cors' })
-    .catch(function() { return fetchFromUrl(proxy1, {}); })
-    .catch(function() { return fetchFromUrl(proxy2, {}); })
-  .then(function(text) {
-    var parsed;
-    try { parsed = JSON.parse(text); } catch(e) { parsed = { alerts: [] }; }
+  fetch(WORKER_URL + '?t=' + Date.now(), { cache: 'no-store' })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
+  .then(function(parsed) {
     var remote = parsed.alerts || [];
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
