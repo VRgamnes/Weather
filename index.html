@@ -262,7 +262,7 @@ input,textarea,select{font-size:16px!important}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="logo">⛈ StormTrack</div>
       <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
-      <span id="notifStatusDot" title="Notifications enabled" style="display:none;width:7px;height:7px;border-radius:50%;background:#43a047;flex-shrink:0"></span>
+      <button id="notifToggleBtn" onclick="toggleNotifSetting()" style="display:none;background:none;border:1px solid var(--bdr);border-radius:12px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--mut);white-space:nowrap;transition:all .2s"></button>
     </div>
     <div class="tabs">
       <button class="tab on" id="tW" onclick="goW()">🌤 Weather</button>
@@ -279,6 +279,39 @@ input,textarea,select{font-size:16px!important}
 <div class="main-content">
 <!-- WEATHER PAGE -->
 <div class="pg on" id="wPg">
+
+  <!-- NOTIFICATION FULL PROMPT -->
+  <div id="notifPrompt" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,22,40,0.97);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center">
+    <div style="font-size:56px;margin-bottom:16px">🔔</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--a);margin-bottom:10px">Stay Alert</div>
+    <div style="font-size:15px;color:var(--txt);margin-bottom:8px;font-weight:500">Get notified about severe weather in your area</div>
+    <div style="font-size:13px;color:var(--mut);margin-bottom:32px;line-height:1.6">StormTrack sends push notifications when emergency alerts are issued for your location — even when the app is closed.</div>
+    <button onclick="enableNotifs()" style="width:100%;max-width:280px;background:var(--a);border:none;border-radius:12px;color:#0a1628;font-size:16px;font-weight:500;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:12px">Enable Notifications</button>
+    <button onclick="dismissNotifPrompt()" style="width:100%;max-width:280px;background:none;border:1px solid var(--bdr);border-radius:12px;color:var(--mut);font-size:14px;padding:12px;cursor:pointer;font-family:'DM Sans',sans-serif">Not now</button>
+    <div style="font-size:11px;color:var(--mut);margin-top:16px;opacity:0.6">You can enable this later from the weather screen</div>
+  </div>
+
+  <!-- NOTIFICATION SETTINGS BAR — always visible in weather page -->
+  <div id="notifBar" style="background:var(--card);border-bottom:1px solid var(--bdr);padding:10px 14px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:16px;flex-shrink:0" id="notifBarIcon">🔔</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:500" id="notifBarTitle">Notifications off</div>
+      <div style="font-size:11px;color:var(--mut)" id="notifBarSub">Tap to get alerted for weather in your area</div>
+    </div>
+    <div class="tg" id="notifTog" onclick="toggleNotifPref()" style="flex-shrink:0"><div class="tgk"></div></div>
+  </div>
+
+  <!-- NOTIFICATION MINI BANNER (fallback for dismissed prompt) -->
+  <div id="notifBanner" style="display:none;background:rgba(79,195,247,0.1);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin:10px 14px 0;flex-direction:row;align-items:center;gap:10px">
+    <span style="font-size:18px;flex-shrink:0">🔔</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:500">Enable alert notifications</div>
+      <div style="font-size:11px;color:var(--mut)">Get notified even when app is closed</div>
+    </div>
+    <button onclick="enableNotifs()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0">Enable</button>
+    <button onclick="document.getElementById('notifBanner').style.display='none'" style="background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">×</button>
+  </div>
+
   <!-- MAP SECTION -->
   <div class="map-controls" id="wMapControls">
     <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Radar</button>
@@ -321,29 +354,6 @@ input,textarea,select{font-size:16px!important}
       <div id="modZoneMap"></div>
     </div>
   </div>
-</div>
-
-<!-- PIN PAGE -->
-<!-- NOTIFICATION PROMPT — shown first time user opens app -->
-<div id="notifPrompt" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,22,40,0.97);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center">
-  <div style="font-size:56px;margin-bottom:16px">🔔</div>
-  <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--a);margin-bottom:10px">Stay Alert</div>
-  <div style="font-size:15px;color:var(--txt);margin-bottom:8px;font-weight:500">Get notified about severe weather in your area</div>
-  <div style="font-size:13px;color:var(--mut);margin-bottom:32px;line-height:1.6">StormTrack will send you push notifications when emergency alerts are issued for your location — even when the app is closed.</div>
-  <button onclick="enableNotifs()" style="width:100%;max-width:280px;background:var(--a);border:none;border-radius:12px;color:#0a1628;font-size:16px;font-weight:500;padding:15px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:12px">Enable Notifications</button>
-  <button onclick="dismissNotifPrompt()" style="width:100%;max-width:280px;background:none;border:1px solid var(--bdr);border-radius:12px;color:var(--mut);font-size:14px;padding:12px;cursor:pointer;font-family:'DM Sans',sans-serif">Not now</button>
-  <div style="font-size:11px;color:var(--mut);margin-top:16px;opacity:0.6">You can enable notifications later from the weather screen</div>
-</div>
-
-<!-- NOTIFICATION MINI BANNER — shown in weather page if not enabled -->
-<div id="notifBanner" style="display:none;background:rgba(79,195,247,0.1);border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin:10px 14px 0;align-items:center;gap:10px">
-  <span style="font-size:18px">🔔</span>
-  <div style="flex:1;min-width:0">
-    <div style="font-size:13px;font-weight:500">Enable alert notifications</div>
-    <div style="font-size:11px;color:var(--mut)">Get notified even when app is closed</div>
-  </div>
-  <button onclick="enableNotifs()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0">Enable</button>
-  <button onclick="document.getElementById('notifBanner').style.display='none'" style="background:none;border:none;color:var(--mut);font-size:20px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">×</button>
 </div>
 
 <div class="pinpg" id="pinPg">
@@ -558,7 +568,8 @@ function pullAlerts() {
           // 1. Admin toggled "Push Notification" ON for this alert
           // 2. User has granted permission
           // 3. Alert applies to user's location
-          if (a.push && inMyArea && Notification.permission === 'granted') {
+          var notifEnabled = localStorage.getItem('st_notif_enabled') === 'true';
+          if (a.push && inMyArea && Notification.permission === 'granted' && notifEnabled) {
             fireNotification(a);
           }
         }
@@ -1213,7 +1224,67 @@ function dismissNotifPrompt() {
   var p = document.getElementById('notifPrompt');
   if (p) p.style.display = 'none';
   localStorage.setItem('st_notif_dismissed', '1');
-  checkShowNotifBanner(); // show mini banner instead
+}
+
+function toggleNotifPref() {
+  var saved = localStorage.getItem('st_notif_enabled');
+  if (saved === 'true' && Notification.permission === 'granted') {
+    // Currently ON — turn off (just saves preference, browser keeps permission)
+    localStorage.setItem('st_notif_enabled', 'false');
+    updateNotifBar();
+  } else {
+    // Currently OFF — request permission and turn on
+    if (!('Notification' in window)) {
+      alert('Notifications not supported.\n\nOn iPhone: Add to Home Screen first (Share → Add to Home Screen), then try again.');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      alert('Notifications are blocked.\n\nTo fix:\n• iPhone: Settings → Safari → StormTrack → Notifications → Allow\n• Android: tap lock icon in address bar → Notifications → Allow\nThen reload the app.');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      localStorage.setItem('st_notif_enabled', 'true');
+      updateNotifBar();
+      try { new Notification('⛈ StormTrack', { body: 'Notifications enabled!', icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png', tag: 'stormtrack-welcome' }); } catch(e){}
+      return;
+    }
+    // Need to request
+    Notification.requestPermission().then(function(result) {
+      if (result === 'granted') {
+        localStorage.setItem('st_notif_enabled', 'true');
+        localStorage.setItem('st_notif', 'granted');
+        updateNotifBar();
+        try { new Notification('⛈ StormTrack', { body: 'Notifications enabled!', icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png', tag: 'stormtrack-welcome' }); } catch(e){}
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'NOTIF_GRANTED' });
+        }
+      } else {
+        localStorage.setItem('st_notif_enabled', 'false');
+        updateNotifBar();
+        if (result === 'denied') {
+          alert('Notifications blocked. You can enable them in browser settings.');
+        }
+      }
+    });
+  }
+}
+
+function updateNotifBar() {
+  var tog = document.getElementById('notifTog');
+  var icon = document.getElementById('notifBarIcon');
+  var title = document.getElementById('notifBarTitle');
+  var sub = document.getElementById('notifBarSub');
+  if (!tog) return;
+  var enabled = localStorage.getItem('st_notif_enabled') === 'true' && Notification.permission === 'granted';
+  tog.classList.toggle('on', enabled);
+  if (icon) icon.textContent = enabled ? '🔔' : '🔕';
+  if (title) title.textContent = enabled ? 'Notifications on' : 'Notifications off';
+  if (sub) sub.textContent = enabled
+    ? 'You will be alerted for weather in your area'
+    : 'Tap to get alerted for weather in your area';
+  // Update status dot in nav
+  var dot = document.getElementById('notifStatusDot');
+  if (dot) dot.style.display = enabled ? 'inline-block' : 'none';
 }
 
 function enableNotifs() {
@@ -1259,14 +1330,50 @@ function enableNotifs() {
 }
 
 function showNotifStatus() {
-  // Show a small green indicator so user knows notifications are on
-  var el = document.getElementById('notifStatusDot');
-  if (!el) return;
-  if (Notification.permission === 'granted') {
-    el.style.display = 'inline-block';
-    el.title = 'Notifications enabled';
+  var btn = document.getElementById('notifToggleBtn');
+  if (!btn) return;
+  var saved = localStorage.getItem('st_notif_enabled');
+  var permitted = 'Notification' in window && Notification.permission === 'granted';
+  if (permitted && saved !== 'false') {
+    // Enabled
+    btn.style.display = 'inline-block';
+    btn.textContent = '🔔 On';
+    btn.style.color = 'var(--ok)';
+    btn.style.borderColor = 'var(--ok)';
+    btn.title = 'Notifications on — tap to disable';
+  } else if (permitted && saved === 'false') {
+    // Permitted but user turned off
+    btn.style.display = 'inline-block';
+    btn.textContent = '🔕 Off';
+    btn.style.color = 'var(--mut)';
+    btn.style.borderColor = 'var(--bdr)';
+    btn.title = 'Notifications off — tap to enable';
   } else {
-    el.style.display = 'none';
+    btn.style.display = 'none';
+  }
+}
+
+function toggleNotifSetting() {
+  var saved = localStorage.getItem('st_notif_enabled');
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    enableNotifs();
+    return;
+  }
+  if (saved === 'false') {
+    // Turn ON
+    localStorage.setItem('st_notif_enabled', 'true');
+    showNotifStatus();
+    try {
+      new Notification('⛈ StormTrack', {
+        body: 'Notifications re-enabled!',
+        icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+        tag: 'stormtrack-toggle'
+      });
+    } catch(e) {}
+  } else {
+    // Turn OFF
+    localStorage.setItem('st_notif_enabled', 'false');
+    showNotifStatus();
   }
 }
 
@@ -1282,6 +1389,7 @@ function checkShowNotifBanner() {
     if (banner) banner.style.display = 'none';
     if (prompt) prompt.style.display = 'none';
     localStorage.setItem('st_notif', 'granted');
+    if (!localStorage.getItem('st_notif_enabled')) localStorage.setItem('st_notif_enabled', 'true');
     showNotifStatus();
     return;
   }
@@ -1498,6 +1606,8 @@ function doPush(a) {
 }
 
 function fireNotification(a) {
+  // Respect user's notification preference
+  if (localStorage.getItem('st_notif_enabled') === 'false') return;
   try {
     var typeColors = {
       warning: '#ff8f00', danger: '#e53935', info: '#4fc3f7',
@@ -1811,6 +1921,7 @@ window.addEventListener('load', function() {
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
   showNotifStatus();
+  updateNotifBar();
   // Show full notification prompt on first visit
   if ('Notification' in window
       && Notification.permission === 'default'
