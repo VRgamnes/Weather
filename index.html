@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>StormTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--sky:#0a1628;--a:#4fc3f7;--a2:#81d4fa;--warn:#ff8f00;--dng:#e53935;--ok:#43a047;--txt:#e8f4fd;--mut:#7eb8d4;--card:rgba(255,255,255,.07);--ch:rgba(255,255,255,.13);--bdr:rgba(79,195,247,.2)}
+html,body{min-height:100vh;background:var(--sky);color:var(--txt);font-family:'DM Sans',sans-serif}
+body.red{animation:rp 2s infinite}
+@keyframes rp{0%,100%{background:#3a0000}50%{background:#5a0000}}
+@keyframes si{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+
+/* NAV */
+.nav{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.4);border-bottom:1px solid var(--bdr);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:1000}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--a)}
+.nm{flex:1;min-width:110px;max-width:230px;display:flex;gap:5px}
+.li{flex:1;background:rgba(255,255,255,.08);border:1px solid var(--bdr);border-radius:20px;padding:7px 12px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none}
+.li:focus{border-color:var(--a)}
+.li::placeholder{color:var(--mut)}
+.go{background:var(--a);border:none;border-radius:15px;color:#0a1628;font-size:12px;font-weight:500;padding:7px 12px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.go:hover{background:var(--a2)}
+.tabs{display:flex;gap:4px}
+.tab{padding:6px 11px;border-radius:13px;font-size:12px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .2s}
+.tab.on{background:var(--a);color:#0a1628;font-weight:500}
+.tab:hover:not(.on){border-color:var(--bdr);color:var(--txt)}
+
+/* PAGES */
+.pg{display:none;padding:0 0 32px}.pg.on{display:block}
+.pinpg{display:none;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;min-height:80vh}.pinpg.on{display:flex}
+.apg{display:none;padding:13px 13px 32px}.apg.on{display:block}
+
+/* MAP */
+#usMap{width:100%;height:320px;background:#040e1a;position:relative;z-index:1}
+.map-controls{display:flex;gap:6px;padding:8px 13px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--bdr);flex-wrap:wrap;align-items:center}
+.mc-btn{background:rgba(255,255,255,.07);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:11px;padding:5px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.mc-btn.on{background:rgba(79,195,247,.2);border-color:var(--a);color:var(--a)}
+.mc-btn:hover:not(.on){background:var(--ch)}
+.map-legend{display:flex;gap:10px;margin-left:auto;align-items:center;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--mut)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* WEATHER CONTENT */
+.wcontent{padding:0 13px}
+.hero{text-align:center;padding:18px 0 11px}
+.cn{font-size:17px;font-weight:500}.cs{font-size:12px;color:var(--mut);margin-bottom:7px}
+.hico{font-size:58px;margin:3px 0;line-height:1.1}
+.bt{font-family:'Bebas Neue',sans-serif;font-size:84px;line-height:1}
+.bt sup{font-size:32px;vertical-align:top;margin-top:13px;display:inline-block}
+.cond{font-size:15px;color:var(--a2);margin:3px 0 5px}.hl{font-size:13px;color:var(--mut)}
+.ldg{text-align:center;padding:40px 20px;color:var(--mut);font-size:15px}.ldg span{display:block;font-size:40px;margin-bottom:12px}
+.err{background:rgba(229,57,53,.12);border:1px solid rgba(229,57,53,.3);border-radius:10px;padding:13px;font-size:13px;color:#ef9a9a;margin:10px 0;word-break:break-all}
+.st{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.asec{margin-bottom:13px}
+.ab{border-radius:10px;padding:9px 13px;margin-bottom:6px;display:flex;align-items:flex-start;gap:9px;border-left:4px solid;cursor:pointer;animation:si .3s ease;transition:opacity .15s}
+.ab:hover{opacity:.82}
+.ab.warning{background:rgba(255,143,0,.13);border-color:var(--warn)}
+.ab.danger{background:rgba(229,57,53,.15);border-color:var(--dng)}
+.ab.info{background:rgba(79,195,247,.1);border-color:var(--a)}
+.ab.tornado{background:rgba(156,39,176,.14);border-color:#9c27b0}
+.ab.flood{background:rgba(21,101,192,.17);border-color:#1e88e5}
+.ab.heat{background:rgba(216,67,21,.14);border-color:#ef6c00}
+.ab.snow{background:rgba(120,144,156,.17);border-color:#90a4ae}
+.ab.fog{background:rgba(96,125,139,.14);border-color:#78909c}
+.ab.freeze{background:rgba(2,136,209,.14);border-color:#0288d1}
+.ai{font-size:17px;flex-shrink:0;margin-top:1px}
+.at{font-size:13px;font-weight:500;margin-bottom:2px}
+.ap{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:255px}
+.atap{font-size:10px;color:var(--a);margin-top:2px}
+.na{text-align:center;padding:10px;font-size:12px;color:var(--mut);background:var(--card);border-radius:10px;border:1px dashed var(--bdr)}
+.sg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-bottom:13px}
+.sc{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:11px}
+.sl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.sv{font-size:19px;font-weight:500}.su{font-size:11px;color:var(--mut);font-weight:400}.ss{font-size:11px;color:var(--mut);margin-top:2px}
+.hs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:13px}
+.hs::-webkit-scrollbar{height:3px}.hs::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.hc{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:8px 11px;text-align:center;flex-shrink:0;min-width:57px}
+.ht{font-size:10px;color:var(--mut);margin-bottom:3px}.hico2{font-size:17px;margin-bottom:3px}.htp{font-size:13px;font-weight:500}.hpop{font-size:10px;color:var(--a);margin-top:2px}
+.fsec{margin-bottom:13px}
+.fr{display:flex;align-items:center;padding:8px 11px;background:var(--card);border:1px solid var(--bdr);border-radius:10px;margin-bottom:5px;gap:7px}
+.fd{font-size:13px;flex:.9;font-weight:500}.fdsc{font-size:11px;color:var(--mut);flex:2}.fic{font-size:17px;flex:.4;text-align:center}
+.frg{font-size:13px;text-align:right;white-space:nowrap}.fh{font-weight:500}.flo{color:var(--mut)}
+.sr2{display:flex;gap:7px;margin-bottom:13px}
+.suc,.wc2{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:11px;flex:1}
+.sml{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px}
+.smm{font-size:14px;font-weight:500;margin-bottom:3px}.sms{font-size:11px;color:var(--mut);margin-top:2px}
+
+/* MODAL */
+.mw{display:none;padding:10px 13px 20px}.mw.on{display:block}
+.mb{background:#0d1f40;border:1px solid var(--bdr);border-radius:14px;padding:18px;animation:si .25s ease;max-width:480px;margin:0 auto}
+.mt2{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px}
+.mbdg{font-size:11px;padding:3px 10px;border-radius:12px}
+.mc2{background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1;padding:0}.mc2:hover{color:var(--txt)}
+.mti{font-size:18px;font-weight:500;margin-bottom:7px}.mm2{font-size:13px;color:var(--mut);line-height:1.65;margin-bottom:11px}
+.mme{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+.mmi{font-size:11px;background:rgba(255,255,255,.07);border-radius:7px;padding:4px 9px;color:var(--mut)}
+.mzl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+#modZoneMap{width:100%;height:160px;border-radius:8px;overflow:hidden}
+
+/* PIN */
+.ptl{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--a);margin-bottom:4px}
+.psb{font-size:13px;color:var(--mut);margin-bottom:22px}
+.pds{display:flex;gap:13px;margin-bottom:19px}
+.pd{width:13px;height:13px;border-radius:50%;background:var(--card);border:1.5px solid var(--bdr);transition:all .15s}
+.pd.f{background:var(--a);border-color:var(--a)}.pd.sh{background:var(--dng);border-color:var(--dng)}
+.pkp{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:195px}
+.pk{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:13px;font-size:19px;font-weight:500;cursor:pointer;text-align:center;transition:all .12s;color:var(--txt);font-family:'DM Sans',sans-serif}
+.pk:hover{background:var(--ch);border-color:var(--a)}.pk:active{transform:scale(.93)}
+.pk.del{font-size:14px;color:var(--mut)}
+.pe{font-size:13px;color:var(--dng);margin-top:11px;min-height:19px}
+
+/* ADMIN */
+.ah{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+.atl{font-family:'Bebas Neue',sans-serif;font-size:23px;letter-spacing:2px;color:var(--a)}
+.lk{background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);border-radius:7px;color:#ef5350;font-size:12px;padding:5px 11px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.lk:hover{background:rgba(229,57,53,.25)}
+.ac{background:var(--card);border:1px solid var(--bdr);border-radius:13px;padding:15px;margin-bottom:11px}
+.ct{font-size:11px;font-weight:500;color:var(--a2);letter-spacing:.5px;margin-bottom:11px;text-transform:uppercase}
+.fg{margin-bottom:10px}.fl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;display:block}
+.inp,.txta{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--bdr);border-radius:7px;padding:8px 10px;color:var(--txt);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+.inp:focus,.txta:focus{border-color:var(--a)}.inp[type=datetime-local]{color-scheme:dark}
+.txta{resize:vertical;min-height:66px;line-height:1.5}
+.tr2{display:flex;gap:7px}.tr2 .fg{flex:1}
+.tps{display:flex;gap:5px;flex-wrap:wrap}
+.tp{padding:4px 10px;border-radius:13px;font-size:11px;cursor:pointer;border:1px solid var(--bdr);background:none;color:var(--mut);transition:all .15s;font-family:'DM Sans',sans-serif}
+.tp.warning.sel{background:rgba(255,143,0,.2);border-color:var(--warn);color:var(--warn)}
+.tp.danger.sel{background:rgba(229,57,53,.2);border-color:var(--dng);color:var(--dng)}
+.tp.info.sel{background:rgba(79,195,247,.15);border-color:var(--a);color:var(--a)}
+.tp.tornado.sel{background:rgba(156,39,176,.2);border-color:#9c27b0;color:#ce93d8}
+.tp.flood.sel{background:rgba(21,101,192,.2);border-color:#1e88e5;color:#90caf9}
+.tp.heat.sel{background:rgba(216,67,21,.2);border-color:#ef6c00;color:#ffcc80}
+.tp.snow.sel{background:rgba(120,144,156,.2);border-color:#90a4ae;color:#cfd8dc}
+.tp.fog.sel{background:rgba(96,125,139,.2);border-color:#78909c;color:#b0bec5}
+.tp.freeze.sel{background:rgba(2,136,209,.2);border-color:#0288d1;color:#81d4fa}
+.tp:hover:not(.sel){border-color:rgba(255,255,255,.25);color:var(--txt)}
+.tgr{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.tgl{font-size:13px;color:var(--txt);flex:1}.tgs{font-size:11px;color:var(--mut);margin-top:1px}
+.tg{width:41px;height:23px;border-radius:12px;background:rgba(255,255,255,.12);border:1px solid var(--bdr);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.tg.on{background:var(--a)}.tgk{width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s}
+.tg.on .tgk{left:20px}
+.sb{width:100%;padding:12px;background:var(--a);color:#0a1628;border:none;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s}
+.sb:hover{background:var(--a2)}.sb:active{transform:scale(.98)}
+.sok{text-align:center;padding:8px;font-size:12px;color:var(--ok);display:none}.sok.on{display:block}
+
+/* ADMIN MAP ZONE */
+#adminMap{width:100%;height:260px;border-radius:9px;overflow:hidden;border:1px solid var(--bdr)}
+.ztb{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap;align-items:center}
+.zb{background:rgba(255,255,255,.07);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:12px;padding:5px 10px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.zb.on{background:rgba(79,195,247,.2);border-color:var(--a);color:var(--a)}.zb:hover:not(.on){background:var(--ch)}
+.zb.cl{background:rgba(229,57,53,.1);border-color:rgba(229,57,53,.3);color:#ef5350}
+.zst{font-size:11px;color:var(--mut);flex:1;text-align:right}
+.zh{font-size:11px;color:var(--mut);margin-top:5px}
+
+/* HISTORY */
+.hi2{padding:9px 0;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
+.hi2:last-child{border-bottom:none}
+.hb{font-size:10px;padding:2px 8px;border-radius:12px;flex-shrink:0;margin-top:2px;white-space:nowrap}
+.hb.warning{background:rgba(255,143,0,.2);color:var(--warn)}.hb.danger{background:rgba(229,57,53,.2);color:var(--dng)}
+.hb.info{background:rgba(79,195,247,.15);color:var(--a)}.hb.tornado{background:rgba(156,39,176,.2);color:#ce93d8}
+.hb.flood{background:rgba(21,101,192,.2);color:#90caf9}.hb.heat{background:rgba(216,67,21,.2);color:#ffcc80}
+.hb.snow{background:rgba(120,144,156,.2);color:#cfd8dc}.hb.fog{background:rgba(96,125,139,.2);color:#b0bec5}
+.hb.freeze{background:rgba(2,136,209,.2);color:#81d4fa}
+.hbd{flex:1;min-width:0}
+.hti{font-size:12px;font-weight:500;margin-bottom:1px}
+.hms{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hmt{font-size:10px;color:var(--mut);margin-top:2px;opacity:.75}
+.db{background:none;border:none;color:var(--mut);cursor:pointer;font-size:17px;padding:0 3px;line-height:1;flex-shrink:0}.db:hover{color:var(--dng)}
+.he{font-size:12px;color:var(--mut);text-align:center;padding:13px 0}
+.bsm{display:inline-block;font-size:10px;padding:1px 6px;border-radius:9px;margin-left:4px;vertical-align:middle}
+.bsc{background:rgba(79,195,247,.15);color:var(--a)}.bex{background:rgba(120,144,156,.2);color:#90a4ae}
+.bpu{background:rgba(67,160,71,.2);color:#81c784}.bzo{background:rgba(156,39,176,.15);color:#ce93d8}
+.pcr{display:flex;gap:7px;flex-wrap:wrap}.pcr .inp{flex:1;min-width:90px}
+.pcb{background:var(--a);color:#0a1628;border:none;border-radius:7px;font-size:12px;font-weight:500;padding:8px 13px;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif}.pcb:hover{background:var(--a2)}
+.pcf{font-size:12px;margin-top:5px;min-height:17px}.pcf.ok{color:var(--ok)}.pcf.er{color:var(--dng)}
+
+/* Leaflet dark overrides */
+.leaflet-tile-pane{filter:brightness(0.85) saturate(0.7) hue-rotate(185deg)}
+.leaflet-control-attribution{background:rgba(0,0,0,.5)!important;color:#666!important;font-size:9px!important}
+.leaflet-control-attribution a{color:#888!important}
+.leaflet-bar a{background:#0d1f40!important;color:var(--txt)!important;border-color:var(--bdr)!important}
+.leaflet-bar a:hover{background:#162347!important}
+.leaflet-popup-content-wrapper{background:#0d1f40;border:1px solid var(--bdr);color:var(--txt);border-radius:10px}
+.leaflet-popup-tip{background:#0d1f40}
+.leaflet-popup-content{font-family:'DM Sans',sans-serif;font-size:13px;margin:10px 14px}
+.lpop-title{font-weight:500;font-size:14px;margin-bottom:5px}
+.lpop-type{font-size:11px;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:7px}
+.lpop-msg{font-size:12px;color:var(--mut);line-height:1.5}
+
+@media(max-width:400px){.bt{font-size:70px}.tr2{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="logo">⛈ StormTrack</div>
+  <div class="nm">
+    <input class="li" id="locIn" placeholder="City..." value="New York"/>
+    <button class="go" onclick="doSearch()">Go</button>
+  </div>
+  <div class="tabs">
+    <button class="tab on" id="tW" onclick="goW()">Weather</button>
+    <button class="tab" id="tA" onclick="goAdmin()">Admin</button>
+  </div>
+</nav>
+
+<!-- WEATHER PAGE -->
+<div class="pg on" id="wPg">
+  <!-- MAP SECTION -->
+  <div class="map-controls" id="wMapControls">
+    <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Rain</button>
+    <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
+    <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
+    <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">☁️ Clouds</button>
+    <div class="map-legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#4fc3f7"></div>Your location</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#e53935"></div>Alert zone</div>
+    </div>
+  </div>
+  <div id="usMap"></div>
+  <div class="wcontent">
+    <div id="wC"><div class="ldg"><span>⛅</span>Loading weather...</div></div>
+  </div>
+</div>
+
+<!-- ALERT MODAL -->
+<div class="mw" id="modW">
+  <div class="mb">
+    <div class="mt2">
+      <span class="mbdg" id="mBdg"></span>
+      <button class="mc2" onclick="closeMod()">×</button>
+    </div>
+    <div class="mti" id="mTi"></div>
+    <div class="mm2" id="mMg"></div>
+    <div class="mme" id="mMe"></div>
+    <div id="mZW" style="display:none">
+      <div class="mzl">Alert Zone on Map</div>
+      <div id="modZoneMap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PIN PAGE -->
+<div class="pinpg" id="pinPg">
+  <div class="ptl">Admin Access</div>
+  <div class="psb">Enter your PIN</div>
+  <div class="pds"><div class="pd" id="p0"></div><div class="pd" id="p1"></div><div class="pd" id="p2"></div><div class="pd" id="p3"></div></div>
+  <div class="pkp">
+    <button class="pk" onclick="pp('1')">1</button><button class="pk" onclick="pp('2')">2</button><button class="pk" onclick="pp('3')">3</button>
+    <button class="pk" onclick="pp('4')">4</button><button class="pk" onclick="pp('5')">5</button><button class="pk" onclick="pp('6')">6</button>
+    <button class="pk" onclick="pp('7')">7</button><button class="pk" onclick="pp('8')">8</button><button class="pk" onclick="pp('9')">9</button>
+    <button class="pk" style="visibility:hidden"></button>
+    <button class="pk" onclick="pp('0')">0</button>
+    <button class="pk del" onclick="pdel()">⌫</button>
+  </div>
+  <div class="pe" id="pErr"></div>
+</div>
+
+<!-- ADMIN PAGE -->
+<div class="apg" id="aPg">
+  <div class="ah"><div class="atl">Alert Control</div><button class="lk" onclick="lockIt()">🔒 Lock</button></div>
+
+  <div class="ac">
+    <div class="ct">Compose Alert</div>
+    <div class="fg"><label class="fl">Type</label><div class="tps">
+      <button class="tp warning sel" data-t="warning" onclick="selT(this)">⚠️ Warning</button>
+      <button class="tp danger" data-t="danger" onclick="selT(this)">🚨 Danger</button>
+      <button class="tp info" data-t="info" onclick="selT(this)">ℹ️ Advisory</button>
+      <button class="tp tornado" data-t="tornado" onclick="selT(this)">🌪️ Tornado</button>
+      <button class="tp flood" data-t="flood" onclick="selT(this)">🌊 Flood</button>
+      <button class="tp heat" data-t="heat" onclick="selT(this)">🌡️ Heat</button>
+      <button class="tp snow" data-t="snow" onclick="selT(this)">❄️ Snow</button>
+      <button class="tp fog" data-t="fog" onclick="selT(this)">🌫️ Fog</button>
+      <button class="tp freeze" data-t="freeze" onclick="selT(this)">🧊 Freeze</button>
+    </div></div>
+    <div class="fg"><label class="fl">Title</label><input class="inp" id="aT" placeholder="e.g. Winter Storm Warning"/></div>
+    <div class="fg"><label class="fl">Message</label><textarea class="txta" id="aM" placeholder="Describe the alert..."></textarea></div>
+    <div class="tr2">
+      <div class="fg"><label class="fl">Send at</label><input class="inp" id="aSd" type="datetime-local"/></div>
+      <div class="fg"><label class="fl">Expires at</label><input class="inp" id="aEx" type="datetime-local"/></div>
+    </div>
+    <div class="tgr"><div><div class="tgl">Push Notification</div><div class="tgs">Notify when alert fires</div></div><div class="tg" id="pTg" onclick="togP()"><div class="tgk"></div></div></div>
+    <div class="tgr"><div><div class="tgl">Red Screen Warning</div><div class="tgs">Flash red for danger</div></div><div class="tg on" id="rTg" onclick="togR()"><div class="tgk"></div></div></div>
+  </div>
+
+  <div class="ac">
+    <div class="ct">Draw Alert Zone on US Map</div>
+    <div class="ztb">
+      <button class="zb on" id="zDr" onclick="setZT('draw')">✏️ Draw Zone</button>
+      <button class="zb" id="zPn" onclick="setZT('pan')">✋ Pan Map</button>
+      <button class="zb cl" onclick="clrZ()">✕ Clear Zone</button>
+      <span class="zst" id="zSt">Click and drag on the map to draw a zone</span>
+    </div>
+    <div id="adminMap"></div>
+    <div class="zh">Draw directly on the real US map. The zone will show on the weather map for all users.</div>
+  </div>
+
+  <div class="ac"><button class="sb" onclick="sendA()">Send / Schedule Alert</button><div class="sok" id="sOk"></div></div>
+
+  <div class="ac"><div class="ct">Alert History</div><div id="hC"><div class="he">No alerts yet</div></div></div>
+
+  <div class="ac">
+    <div class="ct">Change PIN</div>
+    <div class="pcr">
+      <input class="inp" id="nP" type="password" maxlength="4" placeholder="New PIN" inputmode="numeric"/>
+      <input class="inp" id="cP" type="password" maxlength="4" placeholder="Confirm" inputmode="numeric"/>
+      <button class="pcb" onclick="chgPin()">Save</button>
+    </div>
+    <div class="pcf" id="pFb"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+window.onerror = function(msg,src,line,col,err){
+  var d=document.getElementById('wC');
+  if(d) d.innerHTML='<div class="err">⚠️ Error: '+msg+(src?' ('+src.split('/').pop()+':'+line+')':"")+'<br><small>Try refreshing the page.</small></div>';
+  return false;
+};
+</script>
+<script>
+// ─── STATE ────────────────────────────────────────────────
+var PIN = localStorage.getItem('st_pin') || '1234';
+var pinE = '', admOpen = false, pushOn = false, redOn = true, curType = 'warning';
+var alerts = [];
+try { alerts = JSON.parse(localStorage.getItem('st_als') || '[]'); } catch(e) {}
+alerts.forEach(function(a) {
+  if (a.sendAt) a.sendAt = new Date(a.sendAt);
+  if (a.expires) a.expires = new Date(a.expires);
+  if (a.created) a.created = new Date(a.created);
+});
+var wData = null, wLayer = 'rain';
+var zTool = 'draw', zoneLatLngs = [], adminDrawing = false;
+var expT = {};
+
+var ICO  = {warning:'⚠️',danger:'🚨',info:'ℹ️',tornado:'🌪️',flood:'🌊',heat:'🌡️',snow:'❄️',fog:'🌫️',freeze:'🧊'};
+var LBL  = {warning:'Warning',danger:'Danger',info:'Advisory',tornado:'Tornado',flood:'Flood',heat:'Heat',snow:'Snow',fog:'Fog',freeze:'Freeze'};
+var TCOL = {warning:'#ffb74d',danger:'#ef5350',info:'#4fc3f7',tornado:'#ce93d8',flood:'#90caf9',heat:'#ffcc80',snow:'#cfd8dc',fog:'#b0bec5',freeze:'#81d4fa'};
+var FCOL = {warning:'rgba(255,143,0,',danger:'rgba(229,57,53,',info:'rgba(79,195,247,',tornado:'rgba(156,39,176,',flood:'rgba(21,101,192,',heat:'rgba(216,67,21,',snow:'rgba(120,144,156,',fog:'rgba(96,125,139,',freeze:'rgba(2,136,209,'};
+var DT   = ['danger','tornado','flood','heat'];
+
+function save() { try { localStorage.setItem('st_als', JSON.stringify(alerts)); } catch(e) {} }
+
+// ─── LEAFLET BASE TILE URL ────────────────────────────────
+// OpenStreetMap tiles — free, no key
+var OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+// RainViewer radar tiles — free, no key required
+// We fetch the latest radar timestamp from RainViewer API
+var radarTimestamp = Math.floor(Date.now() / 1000) - 600; // ~10 min ago as fallback
+
+// ─── MAIN WEATHER MAP ────────────────────────────────────
+var wMap = null, radarLayer = null, windLayer = null, tempLayer = null, cloudLayer = null;
+var userMarker = null, alertPolygons = [];
+var userLat = 40.7128, userLon = -74.006; // default NYC
+
+function initWeatherMap() {
+  if (wMap) return;
+  wMap = L.map('usMap', {
+    center: [38.5, -96],
+    zoom: 4,
+    zoomControl: true,
+    attributionControl: true
+  });
+
+  // Dark basemap
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(wMap);
+
+  addRadarLayer();
+  addAlertZonesToMap(wMap);
+}
+
+function getLayerUrl(type) {
+  // OpenWeatherMap free tile layers (no key needed for basic tiles via open proxy)
+  // Using RainViewer for precipitation (100% free, no key)
+  if (type === 'rain') {
+    return 'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png';
+  }
+  // For wind/temp/cloud — use open-meteo visual crossing tiles via wttr.in style
+  // Fallback to a nice semi-transparent overlay showing the concept
+  return null;
+}
+
+function addRadarLayer() {
+  if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer = null; }
+  // Fetch latest RainViewer timestamp
+  fetch('https://api.rainviewer.com/public/weather-maps.json')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var frames = d.radar && d.radar.past;
+      if (frames && frames.length) {
+        radarTimestamp = frames[frames.length - 1].time;
+      }
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+        { opacity: 0.7, tileSize: 256, zIndex: 2 }
+      );
+      radarLayer.addTo(wMap);
+    })
+    .catch(function() {
+      // Fallback with approximate timestamp
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+        { opacity: 0.7, tileSize: 256, zIndex: 2 }
+      );
+      radarLayer.addTo(wMap);
+    });
+}
+
+var wLayerObj = null;
+function setWLayer(type, btn) {
+  wLayer = type;
+  document.querySelectorAll('.mc-btn').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  if (!wMap) return;
+  if (wLayerObj) { wMap.removeLayer(wLayerObj); wLayerObj = null; }
+  if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer = null; }
+
+  if (type === 'rain') {
+    addRadarLayer();
+  } else if (type === 'wind') {
+    // OpenWeatherMap wind layer via open endpoint
+    wLayerObj = L.tileLayer(
+      'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=demo',
+      { opacity: 0.6, zIndex: 2 }
+    );
+    wLayerObj.addTo(wMap);
+    // Also show radar dimmed
+    radarLayer = L.tileLayer(
+      'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+      { opacity: 0.3, tileSize: 256, zIndex: 2 }
+    );
+    radarLayer.addTo(wMap);
+  } else if (type === 'temp') {
+    wLayerObj = L.tileLayer(
+      'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=demo',
+      { opacity: 0.6, zIndex: 2 }
+    );
+    wLayerObj.addTo(wMap);
+  } else if (type === 'clouds') {
+    wLayerObj = L.tileLayer(
+      'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=demo',
+      { opacity: 0.6, zIndex: 2 }
+    );
+    wLayerObj.addTo(wMap);
+    radarLayer = L.tileLayer(
+      'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+      { opacity: 0.4, tileSize: 256, zIndex: 3 }
+    );
+    radarLayer.addTo(wMap);
+  }
+}
+
+function updateUserMarker(lat, lon, cityName) {
+  userLat = lat; userLon = lon;
+  if (!wMap) return;
+  if (userMarker) wMap.removeLayer(userMarker);
+  var icon = L.divIcon({
+    html: '<div style="width:14px;height:14px;background:#4fc3f7;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(79,195,247,.8)"></div>',
+    className: '', iconSize: [14, 14], iconAnchor: [7, 7]
+  });
+  userMarker = L.marker([lat, lon], { icon: icon })
+    .addTo(wMap)
+    .bindPopup('<div class="lpop-title">' + cityName + '</div><div style="font-size:11px;color:var(--mut)">Your location</div>');
+  wMap.setView([lat, lon], 7, { animate: true });
+}
+
+// Alert zones on weather map
+function addAlertZonesToMap(map) {
+  // Clear old
+  alertPolygons.forEach(function(p) { map.removeLayer(p); });
+  alertPolygons = [];
+  var active = alerts.filter(function(a) { return a.active && !a.expired && a.zoneLatLngs && a.zoneLatLngs.length > 2; });
+  active.forEach(function(a) {
+    var color = TCOL[a.type] || '#4fc3f7';
+    var poly = L.polygon(a.zoneLatLngs, {
+      color: color, weight: 2.5, fillColor: color, fillOpacity: 0.2, dashArray: null
+    }).addTo(map);
+    poly.bindPopup(
+      '<div class="lpop-title">' + ICO[a.type] + ' ' + a.title + '</div>' +
+      '<span class="lpop-type" style="background:' + FCOL[a.type] + '0.2);color:' + color + ';border:1px solid ' + FCOL[a.type] + '0.5)">' + LBL[a.type] + '</span>' +
+      '<div class="lpop-msg">' + a.msg + '</div>'
+    );
+    alertPolygons.push(poly);
+  });
+}
+
+// ─── ADMIN MAP ────────────────────────────────────────────
+var aMap = null, aRadar = null, drawPoly = null, drawLatLngs = [];
+var aUserMarker = null;
+
+function initAdminMap() {
+  if (aMap) { setTimeout(function() { aMap.invalidateSize(); addAlertZonesToMap(aMap); }, 100); return; }
+  aMap = L.map('adminMap', { center: [38.5, -96], zoom: 4, zoomControl: true });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19
+  }).addTo(aMap);
+
+  // Live radar on admin map too
+  fetch('https://api.rainviewer.com/public/weather-maps.json')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var frames = d.radar && d.radar.past;
+      var ts = frames && frames.length ? frames[frames.length - 1].time : radarTimestamp;
+      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + ts + '/256/{z}/{x}/{y}/2/1_1.png',
+        { opacity: 0.55, tileSize: 256, zIndex: 2 }).addTo(aMap);
+    }).catch(function() {
+      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/256/{z}/{x}/{y}/2/1_1.png',
+        { opacity: 0.55, tileSize: 256, zIndex: 2 }).addTo(aMap);
+    });
+
+  // Show user location on admin map
+  if (userLat && userLon) {
+    var icon = L.divIcon({ html: '<div style="width:12px;height:12px;background:#4fc3f7;border:2px solid #fff;border-radius:50%"></div>', className: '', iconSize: [12,12], iconAnchor: [6,6] });
+    aUserMarker = L.marker([userLat, userLon], { icon: icon }).addTo(aMap).bindPopup('Your location');
+  }
+
+  addAlertZonesToMap(aMap);
+
+  // Drawing handlers
+  aMap.on('mousedown', function(e) {
+    if (zTool !== 'draw') return;
+    adminDrawing = true;
+    drawLatLngs = [[e.latlng.lat, e.latlng.lng]];
+    if (drawPoly) { aMap.removeLayer(drawPoly); drawPoly = null; }
+  });
+  aMap.on('mousemove', function(e) {
+    if (!adminDrawing) return;
+    drawLatLngs.push([e.latlng.lat, e.latlng.lng]);
+    if (drawPoly) aMap.removeLayer(drawPoly);
+    drawPoly = L.polygon(drawLatLngs, { color: TCOL[curType] || '#4fc3f7', weight: 2, fillOpacity: 0.2 }).addTo(aMap);
+  });
+  aMap.on('mouseup', function() {
+    if (!adminDrawing) return;
+    adminDrawing = false;
+    if (drawLatLngs.length > 3) {
+      zoneLatLngs = drawLatLngs.slice();
+      document.getElementById('zSt').textContent = '✓ Zone drawn on map (' + zoneLatLngs.length + ' pts)';
+    } else {
+      zoneLatLngs = [];
+      document.getElementById('zSt').textContent = 'Draw a larger zone';
+    }
+  });
+
+  // Touch support
+  aMap.on('touchstart', function(e) { if (zTool !== 'draw' || !e.touches || !e.touches[0]) return; var t = e.touches[0]; adminDrawing = true; drawLatLngs = []; });
+  aMap.on('touchmove', function(e) {
+    if (!adminDrawing) return;
+    var ll = aMap.mouseEventToLatLng(e.originalEvent.touches[0]);
+    drawLatLngs.push([ll.lat, ll.lng]);
+    if (drawPoly) aMap.removeLayer(drawPoly);
+    drawPoly = L.polygon(drawLatLngs, { color: TCOL[curType] || '#4fc3f7', weight: 2, fillOpacity: 0.2 }).addTo(aMap);
+  });
+  aMap.on('touchend', function() {
+    if (!adminDrawing) return;
+    adminDrawing = false;
+    if (drawLatLngs.length > 3) { zoneLatLngs = drawLatLngs.slice(); document.getElementById('zSt').textContent = '✓ Zone drawn (' + zoneLatLngs.length + ' pts)'; }
+    else { zoneLatLngs = []; }
+  });
+}
+
+function setZT(t) {
+  zTool = t;
+  document.getElementById('zDr').classList.toggle('on', t === 'draw');
+  document.getElementById('zPn').classList.toggle('on', t === 'pan');
+  if (aMap) {
+    if (t === 'draw') { aMap.dragging.disable(); aMap.getContainer().style.cursor = 'crosshair'; }
+    else { aMap.dragging.enable(); aMap.getContainer().style.cursor = ''; }
+  }
+}
+function clrZ() {
+  zoneLatLngs = []; drawLatLngs = [];
+  if (drawPoly) { aMap.removeLayer(drawPoly); drawPoly = null; }
+  document.getElementById('zSt').textContent = 'Zone cleared — draw a new zone';
+}
+
+// ─── PAGE NAV ─────────────────────────────────────────────
+function goW() {
+  document.getElementById('tW').classList.add('on'); document.getElementById('tA').classList.remove('on');
+  document.getElementById('wPg').classList.add('on');
+  document.getElementById('pinPg').classList.remove('on');
+  document.getElementById('aPg').classList.remove('on');
+  document.getElementById('modW').classList.remove('on');
+  setTimeout(function() { if (wMap) wMap.invalidateSize(); }, 100);
+}
+function goAdmin() {
+  document.getElementById('tA').classList.add('on'); document.getElementById('tW').classList.remove('on');
+  document.getElementById('wPg').classList.remove('on'); document.getElementById('modW').classList.remove('on');
+  if (admOpen) {
+    document.getElementById('aPg').classList.add('on'); document.getElementById('pinPg').classList.remove('on');
+    setTimeout(initAdminMap, 150);
+    return;
+  }
+  pinE = ''; updDots();
+  document.getElementById('pinPg').classList.add('on'); document.getElementById('aPg').classList.remove('on');
+}
+function lockIt() { admOpen = false; goW(); }
+
+// ─── PIN ─────────────────────────────────────────────────
+function pp(d) { if (pinE.length >= 4) return; pinE += d; updDots(); if (pinE.length === 4) setTimeout(checkPin, 120); }
+function pdel() { pinE = pinE.slice(0, -1); updDots(); }
+function updDots() { for (var i = 0; i < 4; i++) { document.getElementById('p'+i).className = 'pd' + (i < pinE.length ? ' f' : ''); } }
+function checkPin() {
+  if (pinE === PIN) {
+    admOpen = true; document.getElementById('pErr').textContent = '';
+    document.getElementById('pinPg').classList.remove('on'); document.getElementById('aPg').classList.add('on');
+    setTimeout(initAdminMap, 150);
+  } else {
+    document.getElementById('pErr').textContent = 'Wrong PIN, try again.';
+    for (var i = 0; i < 4; i++) document.getElementById('p'+i).className = 'pd sh';
+    setTimeout(function() { pinE = ''; updDots(); }, 700);
+  }
+}
+function chgPin() {
+  var np = document.getElementById('nP').value.trim(), cp = document.getElementById('cP').value.trim(), fb = document.getElementById('pFb');
+  if (!/^\d{4}$/.test(np)) { fb.className='pcf er'; fb.textContent='Must be 4 digits.'; return; }
+  if (np !== cp) { fb.className='pcf er'; fb.textContent='PINs do not match.'; return; }
+  PIN = np; localStorage.setItem('st_pin', PIN);
+  document.getElementById('nP').value=''; document.getElementById('cP').value='';
+  fb.className='pcf ok'; fb.textContent='PIN updated!'; setTimeout(function(){fb.textContent='';},3000);
+}
+
+// ─── TOGGLES ─────────────────────────────────────────────
+function togP() { pushOn=!pushOn; document.getElementById('pTg').classList.toggle('on',pushOn); if(pushOn&&'Notification'in window&&Notification.permission==='default')Notification.requestPermission(); }
+function togR() { redOn=!redOn; document.getElementById('rTg').classList.toggle('on',redOn); }
+function selT(btn) { curType=btn.dataset.t; document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('sel');}); btn.classList.add('sel'); }
+
+// ─── ALERTS ──────────────────────────────────────────────
+function sendA() {
+  var title=document.getElementById('aT').value.trim(), msg=document.getElementById('aM').value.trim();
+  var sv=document.getElementById('aSd').value, ev=document.getElementById('aEx').value;
+  if (!title) { document.getElementById('aT').style.borderColor='var(--dng)'; return; }
+  if (!msg) { document.getElementById('aM').style.borderColor='var(--dng)'; return; }
+  document.getElementById('aT').style.borderColor=''; document.getElementById('aM').style.borderColor='';
+  var now=new Date(), sT=sv?new Date(sv):null, eT=ev?new Date(ev):null;
+  var isSched=sT&&sT>now, id=Date.now();
+  var zll = zoneLatLngs.length > 2 ? JSON.parse(JSON.stringify(zoneLatLngs)) : [];
+  var a = { id:id, type:curType, title:title, msg:msg, push:pushOn, redAlert:redOn,
+    sendAt:sT, expires:eT, created:now, active:!isSched, scheduled:isSched, expired:false,
+    zoneLatLngs:zll };
+  alerts.unshift(a);
+  if (isSched) setTimeout(function(){actA(id);}, sT-now); else actA(id);
+  if (eT&&eT>now) expT[id]=setTimeout(function(){expA(id);},eT-now);
+  document.getElementById('aT').value=''; document.getElementById('aM').value='';
+  document.getElementById('aSd').value=''; document.getElementById('aEx').value='';
+  var ok=document.getElementById('sOk'); ok.textContent=isSched?'✓ Alert scheduled!':'✓ Alert sent!'; ok.classList.add('on'); setTimeout(function(){ok.classList.remove('on');},2500);
+  save(); renderH(); renderA();
+  addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
+}
+function actA(id) {
+  var a=alerts.find(function(x){return x.id===id;}); if(!a||a.expired) return;
+  a.active=true; a.scheduled=false;
+  if(a.push) doPush(a);
+  if(a.redAlert&&DT.indexOf(a.type)>=0&&redOn) document.body.classList.add('red');
+  save(); renderA(); renderH();
+  addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
+}
+function expA(id) {
+  var a=alerts.find(function(x){return x.id===id;}); if(!a) return;
+  a.active=false; a.expired=true; chkRed(); save(); renderA(); renderH();
+  addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
+}
+function delA(id) {
+  if(expT[id]) clearTimeout(expT[id]);
+  alerts=alerts.filter(function(a){return a.id!==id;}); chkRed(); save(); renderA(); renderH();
+  addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
+}
+function chkRed() { if(!alerts.some(function(a){return a.active&&!a.expired&&DT.indexOf(a.type)>=0&&a.redAlert;})) document.body.classList.remove('red'); }
+function doPush(a) { if('Notification'in window&&Notification.permission==='granted') new Notification('⛈ StormTrack: '+a.title,{body:a.msg}); }
+function fmt(d) { if(!d) return'—'; return new Date(d).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+function renderA() {
+  var c=document.getElementById('alertsContainer'); if(!c) return;
+  var act=alerts.filter(function(a){return a.active&&!a.expired;});
+  if(!act.length){c.innerHTML='<div class="na">No active alerts</div>';return;}
+  c.innerHTML=act.map(function(a){
+    return '<div class="ab '+a.type+'" onclick="openMod('+a.id+')">' +
+      '<div class="ai">'+ICO[a.type]+'</div>' +
+      '<div style="flex:1;min-width:0"><div class="at">'+a.title+'</div>' +
+      '<div class="ap">'+a.msg+'</div>' +
+      '<div class="atap">Tap for details'+(a.zoneLatLngs&&a.zoneLatLngs.length>2?' · Zone on map':'')+'</div></div></div>';
+  }).join('');
+}
+function renderH() {
+  var c=document.getElementById('hC'); if(!c) return;
+  if(!alerts.length){c.innerHTML='<div class="he">No alerts yet</div>';return;}
+  c.innerHTML=alerts.map(function(a){
+    return '<div class="hi2"><span class="hb '+a.type+'">'+LBL[a.type]+'</span>' +
+      '<div class="hbd"><div class="hti">'+a.title +
+        (a.scheduled?'<span class="bsm bsc">Scheduled</span>':'') +
+        (a.expired?'<span class="bsm bex">Expired</span>':'') +
+        (a.push?'<span class="bsm bpu">Push</span>':'') +
+        (a.zoneLatLngs&&a.zoneLatLngs.length>2?'<span class="bsm bzo">Zone</span>':'') +
+      '</div><div class="hms">'+a.msg+'</div>' +
+      '<div class="hmt">'+(a.sendAt&&a.scheduled?'Sends: '+fmt(a.sendAt):'Sent: '+fmt(a.created))+(a.expires?' · Expires: '+fmt(a.expires):'')+'</div>' +
+      '</div><button class="db" onclick="delA('+a.id+')">×</button></div>';
+  }).join('');
+}
+
+var modZoneMap = null;
+function openMod(id) {
+  var a=alerts.find(function(x){return x.id===id;}); if(!a) return;
+  var tc=FCOL[a.type]||'rgba(79,195,247,', txtc=TCOL[a.type]||'#4fc3f7';
+  document.getElementById('mBdg').textContent=ICO[a.type]+' '+LBL[a.type];
+  document.getElementById('mBdg').style.cssText='background:'+tc+'0.2);color:'+txtc+';border:1px solid '+tc+'0.5);border-radius:12px;padding:3px 10px;font-size:11px';
+  document.getElementById('mTi').textContent=a.title;
+  document.getElementById('mMg').textContent=a.msg;
+  var meta='';
+  if(a.created) meta+='<span class="mmi">Sent: '+fmt(a.created)+'</span>';
+  if(a.expires) meta+='<span class="mmi">Expires: '+fmt(a.expires)+'</span>';
+  if(a.push) meta+='<span class="mmi">📲 Push sent</span>';
+  if(a.zoneLatLngs&&a.zoneLatLngs.length>2) meta+='<span class="mmi">📍 Zone mapped</span>';
+  document.getElementById('mMe').innerHTML=meta;
+
+  var zw=document.getElementById('mZW');
+  if(a.zoneLatLngs&&a.zoneLatLngs.length>2){
+    zw.style.display='block';
+    setTimeout(function(){
+      if(modZoneMap){modZoneMap.remove();modZoneMap=null;}
+      modZoneMap=L.map('modZoneMap',{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false});
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19}).addTo(modZoneMap);
+      var color=TCOL[a.type]||'#4fc3f7';
+      var poly=L.polygon(a.zoneLatLngs,{color:color,weight:2,fillColor:color,fillOpacity:0.25}).addTo(modZoneMap);
+      modZoneMap.fitBounds(poly.getBounds(),{padding:[10,10]});
+      // Radar
+      fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(function(r){return r.json();})
+        .then(function(d){
+          var frames=d.radar&&d.radar.past;
+          var ts=frames&&frames.length?frames[frames.length-1].time:radarTimestamp;
+          L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+ts+'/256/{z}/{x}/{y}/2/1_1.png',{opacity:0.6,tileSize:256}).addTo(modZoneMap);
+        }).catch(function(){});
+    },100);
+  } else { zw.style.display='none'; }
+
+  document.getElementById('wPg').classList.remove('on');
+  document.getElementById('modW').classList.add('on');
+}
+function closeMod() {
+  document.getElementById('modW').classList.remove('on');
+  document.getElementById('wPg').classList.add('on');
+  setTimeout(function(){if(wMap)wMap.invalidateSize();},100);
+}
+
+// ─── WEATHER DATA (OPEN-METEO — FREE) ────────────────────
+var WMO={0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',85:'Snow showers',86:'Heavy snow showers',95:'Thunderstorm',96:'Thunderstorm w/ hail',99:'Severe thunderstorm'};
+function wIco(c,d){if(c===0)return d?'☀️':'🌙';if(c<=2)return d?'⛅':'🌤';if(c===3)return'☁️';if(c<=48)return'🌫️';if(c<=55)return'🌦';if(c<=65)return'🌧';if(c<=77)return'❄️';if(c<=82)return'🌧';if(c<=86)return'🌨';return'⛈';}
+function wDsc(c){return WMO[c]||'Unknown';}
+
+function doSearch(){var l=document.getElementById('locIn').value.trim();if(l)loadWx(l);}
+document.getElementById('locIn').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();});
+
+function loadWx(city) {
+  document.getElementById('wC').innerHTML='<div class="ldg"><span>⛅</span>Loading '+city+'...</div>';
+  fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(city)+'&count=1&language=en&format=json')
+    .then(function(r){if(!r.ok)throw new Error('Geocode error '+r.status);return r.json();})
+    .then(function(gd){
+      if(!gd.results||!gd.results.length) throw new Error('City not found: "'+city+'"');
+      var loc=gd.results[0];
+      var lat=loc.latitude, lon=loc.longitude, name=loc.name, region=loc.admin1||'', country=loc.country||'';
+      updateUserMarker(lat, lon, name);
+      var url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+        '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,precipitation,surface_pressure,visibility'+
+        '&hourly=temperature_2m,weather_code,precipitation_probability,is_day'+
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max'+
+        '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=7';
+      return fetch(url)
+        .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
+        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};renderWx(wData);});
+    })
+    .catch(function(e){
+      document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Check your connection and try again.</small></div>';
+    });
+}
+
+function renderWx(d) {
+  var w=d.w,cur=w.current,daily=w.daily,hourly=w.hourly;
+  var now=new Date(),isDay=cur.is_day===1;
+  var DIRS=['N','NE','E','SE','S','SW','W','NW'],wdir=DIRS[Math.round((cur.wind_direction_10m||0)/45)%8];
+  var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var hi=now.getHours(),hIdx=-1;
+  for(var i=0;i<hourly.time.length;i++){var td=new Date(hourly.time[i]);if(td.getHours()===hi&&td.toDateString()===now.toDateString()){hIdx=i;break;}}
+  var hs=hIdx>=0?hIdx:0,hSlice=hourly.time.slice(hs,hs+16);
+  var sr=new Date(daily.sunrise[0]),ss=new Date(daily.sunset[0]);
+  var tot=(ss-sr)/60000,ela=Math.min(Math.max((now-sr)/60000,0),tot),spct=tot>0?Math.min(100,Math.round((ela/tot)*100)):50;
+  var uv=daily.uv_index_max[0]||0,uvD=uv<=2?'Low':uv<=5?'Moderate':uv<=7?'High':'Very High';
+  var vis=cur.visibility?Math.round(cur.visibility/1609):10;
+  var pres=cur.surface_pressure?(cur.surface_pressure*0.02953).toFixed(1):'—';
+
+  var html='<div class="hero">'+
+    '<div class="cn">'+d.name+'</div>'+
+    '<div class="cs">'+(d.region?d.region+', ':'')+d.country+' · '+now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div>'+
+    '<div class="hico">'+wIco(cur.weather_code,isDay)+'</div>'+
+    '<div class="bt">'+Math.round(cur.temperature_2m)+'<sup>°F</sup></div>'+
+    '<div class="cond">'+wDsc(cur.weather_code)+'</div>'+
+    '<div class="hl">H: '+Math.round(daily.temperature_2m_max[0])+'° · L: '+Math.round(daily.temperature_2m_min[0])+'° · Feels '+Math.round(cur.apparent_temperature)+'°</div>'+
+    '</div>'+
+    '<div class="asec"><div class="st">Active Alerts — tap for details</div><div id="alertsContainer"><div class="na">No active alerts</div></div></div>'+
+    '<div class="sg">'+
+    '<div class="sc"><div class="sl">Humidity</div><div class="sv">'+cur.relative_humidity_2m+'<span class="su">%</span></div><div class="ss">'+(cur.relative_humidity_2m>70?'High':'Normal')+'</div></div>'+
+    '<div class="sc"><div class="sl">Wind</div><div class="sv">'+Math.round(cur.wind_speed_10m)+'<span class="su"> mph</span></div><div class="ss">'+wdir+'</div></div>'+
+    '<div class="sc"><div class="sl">UV Index</div><div class="sv">'+Math.round(uv)+'<span class="su"> '+uvD+'</span></div></div>'+
+    '<div class="sc"><div class="sl">Pressure</div><div class="sv">'+pres+'<span class="su"> in</span></div></div>'+
+    '<div class="sc"><div class="sl">Visibility</div><div class="sv">'+vis+'<span class="su"> mi</span></div></div>'+
+    '<div class="sc"><div class="sl">Precip</div><div class="sv">'+(cur.precipitation?cur.precipitation.toFixed(2):'0.00')+'<span class="su"> in</span></div></div>'+
+    '</div>'+
+    '<div class="st">Hourly Forecast</div>'+
+    '<div class="hs">';
+  for(var h=0;h<hSlice.length;h++){var idx=hs+h;html+='<div class="hc"><div class="ht">'+(h===0?'Now':new Date(hSlice[h]).toLocaleTimeString([],{hour:'numeric',hour12:true}))+'</div><div class="hico2">'+wIco(hourly.weather_code[idx],hourly.is_day[idx])+'</div><div class="htp">'+Math.round(hourly.temperature_2m[idx])+'°</div><div class="hpop">'+(hourly.precipitation_probability[idx]>10?hourly.precipitation_probability[idx]+'%':'')+'</div></div>';}
+  html+='</div><div class="fsec"><div class="st">7-Day Forecast</div>';
+  for(var f=0;f<daily.time.length;f++){html+='<div class="fr"><div class="fd">'+(f===0?'Today':days[new Date(daily.time[f]+'T12:00:00').getDay()])+'</div><div class="fdsc">'+wDsc(daily.weather_code[f])+'</div><div class="fic">'+wIco(daily.weather_code[f],1)+'</div><div class="frg"><span class="fh">'+Math.round(daily.temperature_2m_max[f])+'°</span> <span class="flo">/ '+Math.round(daily.temperature_2m_min[f])+'°</span></div></div>';}
+  html+='</div>'+
+    '<div class="sr2">'+
+    '<div class="suc"><div class="sml">Sunrise / Sunset</div><div class="smm">🌅 '+sr.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div><div class="sms">🌇 '+ss.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div>'+
+    '<div style="margin-top:9px;position:relative;height:5px;background:rgba(255,255,255,.1);border-radius:3px"><div style="position:absolute;top:0;left:0;height:100%;width:'+spct+'%;background:var(--warn);border-radius:3px"></div><div style="position:absolute;top:-4px;left:'+spct+'%;width:13px;height:13px;background:var(--warn);border-radius:50%;transform:translateX(-50%)"></div></div></div>'+
+    '<div class="wc2"><div class="sml">Wind Today</div><div class="smm">💨 '+Math.round(daily.wind_speed_10m_max[0])+' mph max</div><div class="sms">Rain chance: '+daily.precipitation_probability_max[0]+'%</div><div class="sms" style="margin-top:3px">UV max: '+Math.round(uv)+' ('+uvD+')</div></div>'+
+    '</div>';
+
+  document.getElementById('wC').innerHTML=html;
+  renderA();
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+alerts.forEach(function(a){
+  var now=new Date();
+  if(a.scheduled&&a.sendAt&&new Date(a.sendAt)>now) setTimeout(function(){actA(a.id);},new Date(a.sendAt)-now);
+  if(a.active&&!a.expired&&a.expires&&new Date(a.expires)>now) expT[a.id]=setTimeout(function(){expA(a.id);},new Date(a.expires)-now);
+  if(a.active&&!a.expired&&DT.indexOf(a.type)>=0&&a.redAlert) document.body.classList.add('red');
+});
+renderH();
+setInterval(function(){if(wData)loadWx(document.getElementById('locIn').value.trim()||'New York');},600000);
+
+// Init map and load weather after everything is ready
+window.addEventListener('load', function() {
+  try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
+  loadWx('New York');
+});
+</script>
+</body>
+</html>
