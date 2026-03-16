@@ -148,11 +148,13 @@ body.red{animation:rp 2s infinite}
 /* ADMIN MAP ZONE */
 #adminMap{width:100%;height:260px;border-radius:9px;overflow:hidden;border:1px solid var(--bdr)}
 .ztb{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap;align-items:center}
-.zb{background:rgba(255,255,255,.07);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:12px;padding:5px 10px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
-.zb.on{background:rgba(79,195,247,.2);border-color:var(--a);color:var(--a)}.zb:hover:not(.on){background:var(--ch)}
+.zb{background:rgba(255,255,255,.07);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-size:13px;padding:9px 16px;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;min-height:42px;touch-action:manipulation}
+.zb.on{background:rgba(79,195,247,.25);border-color:var(--a);color:var(--a);border-width:2px}
+.zb:hover:not(.on){background:var(--ch)}
 .zb.cl{background:rgba(229,57,53,.1);border-color:rgba(229,57,53,.3);color:#ef5350}
 .zst{font-size:11px;color:var(--mut);flex:1;text-align:right}
 .zh{font-size:11px;color:var(--mut);margin-top:5px}
+#adminMap{touch-action:none}
 
 /* HISTORY */
 .hi2{padding:9px 0;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
@@ -522,6 +524,9 @@ function initAdminMap() {
 
   addAlertZonesToMap(aMap);
 
+  // Start in draw mode by default (important for mobile)
+  setTimeout(function() { setZT('draw'); }, 200);
+
   // Drawing handlers
   aMap.on('mousedown', function(e) {
     if (zTool !== 'draw') return;
@@ -547,21 +552,46 @@ function initAdminMap() {
     }
   });
 
-  // Touch support
-  aMap.on('touchstart', function(e) { if (zTool !== 'draw' || !e.touches || !e.touches[0]) return; var t = e.touches[0]; adminDrawing = true; drawLatLngs = []; });
-  aMap.on('touchmove', function(e) {
-    if (!adminDrawing) return;
-    var ll = aMap.mouseEventToLatLng(e.originalEvent.touches[0]);
+  // Touch drawing — attach directly to the map container div, not Leaflet events
+  var mapContainer = aMap.getContainer();
+  mapContainer.addEventListener('touchstart', function(e) {
+    if (zTool !== 'draw') return;
+    e.preventDefault();
+    e.stopPropagation();
+    adminDrawing = true;
+    drawLatLngs = [];
+    if (drawPoly) { aMap.removeLayer(drawPoly); drawPoly = null; }
+    var t = e.touches[0];
+    var ll = aMap.containerPointToLatLng(aMap.mouseEventToContainerPoint(t));
+    drawLatLngs.push([ll.lat, ll.lng]);
+  }, { passive: false });
+
+  mapContainer.addEventListener('touchmove', function(e) {
+    if (!adminDrawing || zTool !== 'draw') return;
+    e.preventDefault();
+    e.stopPropagation();
+    var t = e.touches[0];
+    var ll = aMap.containerPointToLatLng(aMap.mouseEventToContainerPoint(t));
     drawLatLngs.push([ll.lat, ll.lng]);
     if (drawPoly) aMap.removeLayer(drawPoly);
-    drawPoly = L.polygon(drawLatLngs, { color: TCOL[curType] || '#4fc3f7', weight: 2, fillOpacity: 0.2 }).addTo(aMap);
-  });
-  aMap.on('touchend', function() {
+    if (drawLatLngs.length > 1) {
+      drawPoly = L.polygon(drawLatLngs, { color: TCOL[curType] || '#4fc3f7', weight: 2.5, fillOpacity: 0.25 }).addTo(aMap);
+    }
+  }, { passive: false });
+
+  mapContainer.addEventListener('touchend', function(e) {
     if (!adminDrawing) return;
+    e.preventDefault();
     adminDrawing = false;
-    if (drawLatLngs.length > 3) { zoneLatLngs = drawLatLngs.slice(); document.getElementById('zSt').textContent = '✓ Zone drawn (' + zoneLatLngs.length + ' pts)'; }
-    else { zoneLatLngs = []; }
-  });
+    if (drawLatLngs.length > 5) {
+      zoneLatLngs = drawLatLngs.slice();
+      document.getElementById('zSt').textContent = '✓ Zone drawn (' + zoneLatLngs.length + ' pts)';
+    } else {
+      zoneLatLngs = [];
+      if (drawPoly) { aMap.removeLayer(drawPoly); drawPoly = null; }
+      document.getElementById('zSt').textContent = 'Draw a bigger zone — try again';
+    }
+  }, { passive: false });
 }
 
 function setZT(t) {
@@ -569,8 +599,19 @@ function setZT(t) {
   document.getElementById('zDr').classList.toggle('on', t === 'draw');
   document.getElementById('zPn').classList.toggle('on', t === 'pan');
   if (aMap) {
-    if (t === 'draw') { aMap.dragging.disable(); aMap.getContainer().style.cursor = 'crosshair'; }
-    else { aMap.dragging.enable(); aMap.getContainer().style.cursor = ''; }
+    if (t === 'draw') {
+      aMap.dragging.disable();
+      aMap.touchZoom.disable();
+      aMap.scrollWheelZoom.disable();
+      aMap.doubleClickZoom.disable();
+      aMap.getContainer().style.cursor = 'crosshair';
+    } else {
+      aMap.dragging.enable();
+      aMap.touchZoom.enable();
+      aMap.scrollWheelZoom.enable();
+      aMap.doubleClickZoom.enable();
+      aMap.getContainer().style.cursor = '';
+    }
   }
 }
 function clrZ() {
