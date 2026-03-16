@@ -2452,7 +2452,7 @@ function selSev(btn) {
   document.querySelectorAll('#severityPills .tp').forEach(function(p){ p.classList.remove('sel'); });
   btn.classList.add('sel');
   // Update zone draw color
-  if (zCv) drawZone(zCv, zCtx, zPts, curSeverity, zCv.width, zCv.height);
+  // zone draw handled by admin map
 }
 function togEv(btn) {
   var ev = btn.dataset.ev;
@@ -2480,11 +2480,7 @@ function sendA() {
   document.getElementById('aT').style.borderColor=''; document.getElementById('aM').style.borderColor='';
   var now=new Date(), sT=sv?new Date(sv):null, eT=ev?new Date(ev):null;
   var isSched=sT&&sT>now;
-  // Combine all drawn zones
-  var allZones = zoneList.slice();
-  if (zPts.length > 2) allZones.push({ pts: zPts.slice(), W: zCv?zCv.width:320, H: zCv?zCv.height:220, color: SEV_COLOR[curSeverity]||'#4fc3f7' });
-  var zll = allZones.length ? JSON.parse(JSON.stringify(allZones)) : [];
-  var zoneLatLngs2 = allZones.length && allZones[0].pts ? allZones[0].pts : (zPts.length>2?zPts.slice():[]);
+  var zll = zoneLatLngs.length > 2 ? JSON.parse(JSON.stringify(zoneLatLngs)) : [];
   var sevNow = curSeverity || 'warning';
   var evtsNow = curEvents.slice();
 
