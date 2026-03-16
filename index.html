@@ -778,6 +778,8 @@ var wData = null, wLayer = 'rain';
 var zTool = 'draw', zoneLatLngs = [], adminDrawing = false;
 var expT = {};
 var isSyncing = false;
+var stormPins = [];
+var zoneList = [];  // multiple zones per alert
 
 // Severity → color mapping (this drives banner color, NOT event type)
 var SEV_COLOR = {
@@ -1568,6 +1570,8 @@ function setZT(t) {
     }
   }
 }
+function renderZoneList() { /* multi-zone list UI placeholder */ }
+
 function clrZ() {
   zoneLatLngs = []; drawLatLngs = [];
   if (drawPoly) { aMap.removeLayer(drawPoly); drawPoly = null; }
@@ -2035,21 +2039,21 @@ function toggleLightningBtn(btn) {
   }
 }
 
+var mapClickActive = false;
 function enableMapClickBtn(btn) {
-  var enabled = btn && btn.classList.contains('on');
-  if (enabled) {
-    // Turn off
-    if (wMap) wMap.off('click', onMapClick);
-    if (wMap) wMap.getContainer().style.cursor = '';
-    if (btn) btn.classList.remove('on');
-  } else {
-    // Turn on
-    if (wMap) { wMap.on('click', onMapClick); wMap.getContainer().style.cursor = 'crosshair'; }
+  mapClickActive = !mapClickActive;
+  if (mapClickActive) {
+    if (wMap) { wMap.on('click', onMapClickHandler); wMap.getContainer().style.cursor = 'crosshair'; }
     if (btn) btn.classList.add('on');
+  } else {
+    if (wMap) { wMap.off('click', onMapClickHandler); wMap.getContainer().style.cursor = ''; }
+    if (btn) btn.classList.remove('on');
   }
 }
 
-function onMapClick(e) {
+function onMapClickHandler(e) {
+  // Don't fire during zone drawing
+  if (adminDrawing) return;
   var lat = e.latlng.lat.toFixed(4), lon = e.latlng.lng.toFixed(4);
   document.getElementById('locIn').value = lat + ',' + lon;
   loadWx(lat + ',' + lon);
@@ -2523,7 +2527,7 @@ function sendA() {
   document.getElementById('aT').value=''; document.getElementById('aM').value='';
   document.getElementById('aSd').value=''; document.getElementById('aEx').value='';
   resetTypePicker();
-  zoneList = []; renderZoneList();
+  zoneList = []; if(typeof renderZoneList==='function') renderZoneList();
   var ok=document.getElementById('sOk'); ok.classList.add('on'); setTimeout(function(){ok.classList.remove('on');},2500);
   save(); renderH(); renderA();
   addAlertZonesToMap(wMap); if(aMap) addAlertZonesToMap(aMap);
