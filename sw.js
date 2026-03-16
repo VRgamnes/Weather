@@ -1,8 +1,7 @@
 // StormTrack Service Worker
 // Checks for new/scheduled alerts every 30s even when app is closed
 
-var GIST_ID   = '16b357d8fc9917dc1e37f8825998cf8c';
-var GIST_FILE = 'stormtrack-alerts.json';
+var WORKER_URL = 'https://stormtrack-api.spuddyboy5.workers.dev';
 var CACHE_NAME = 'stormtrack-v1';
 
 // Install — cache the app shell
@@ -69,15 +68,9 @@ self.addEventListener('periodicsync', function(e) {
 });
 
 function checkAlerts() {
-  var rawUrl = 'https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE + '?t=' + Date.now();
-  var proxy  = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://gist.githubusercontent.com/VRgamnes/' + GIST_ID + '/raw/' + GIST_FILE) + '&t=' + Date.now();
-
-  return fetch(rawUrl, { cache: 'no-store' })
-    .catch(function() { return fetch(proxy); })
-    .then(function(r) { return r.text(); })
-    .then(function(text) {
-      var data;
-      try { data = JSON.parse(text); } catch(e) { return; }
+  return fetch(WORKER_URL + '?t=' + Date.now(), { cache: 'no-store' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
       var alerts = data.alerts || [];
       var now    = new Date();
 
