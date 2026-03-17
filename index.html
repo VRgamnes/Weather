@@ -726,6 +726,28 @@ body.light-mode .ab{color:#1a2332}
     </div>
   </div>
 
+  <!-- DAILY WEATHER QUESTION -->
+  <div class="ac">
+    <div class="ct">Daily Weather Question</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:10px">Every day at the set time, automatically generates a weather-based question for your location and shows it as the message of the day for all users.</div>
+    <div class="fg">
+      <label class="fl">Send time (EST)</label>
+      <div class="thresh-row">
+        <input class="inp" id="wxQTime" type="time" value="08:00" style="width:120px"/>
+        <div class="tg" id="wxQTg" onclick="togWxQ()"><div class="tgk"></div></div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Preview — what today's question would be</label>
+      <div id="wxQPreview" style="font-size:13px;color:var(--a);padding:8px;background:var(--card);border-radius:8px;border:1px solid var(--bdr);min-height:36px">Press Preview to generate</div>
+    </div>
+    <div style="display:flex;gap:7px">
+      <button class="sb" style="flex:1;background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="previewWxQ()">👁 Preview</button>
+      <button class="sb" style="flex:1" onclick="saveWxQ()">💾 Save Schedule</button>
+    </div>
+    <div class="pcf" id="wxQFb"></div>
+  </div>
+
   <!-- ALERT SOUND -->
   <div class="ac">
     <div class="ct">Alert Sound</div>
@@ -2184,6 +2206,10 @@ function updateStats() {
 function applySettings(s) {
   if (!s) return;
   appSettings = s;
+  // Restore daily question state
+  if (s.wxQEnabled) { wxQEnabled = s.wxQEnabled; var tg = document.getElementById('wxQTg'); if(tg) tg.classList.toggle('on', wxQEnabled); }
+  if (s.wxQTime) { var el = document.getElementById('wxQTime'); if(el) el.value = s.wxQTime; }
+  try { scheduleWxQ(); } catch(e) {}
   // Ticker
   var tw = document.getElementById('tickerWrap'), tt = document.getElementById('tickerText');
   if (tw) tw.classList.toggle('on', !!s.tickerOn);
@@ -2209,14 +2235,7 @@ function applySettings(s) {
 }
 
 function saveSettings() {
-  var files = {};
-  files['stormtrack-settings.json'] = { content: JSON.stringify(appSettings) };
-  fetch('https://stormtrack-api.spuddyboy5.workers.dev/settings', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(appSettings)
-  }).catch(function(){});
-  // Also piggyback settings into the main data push
+  // Settings are saved as part of the main push — no separate endpoint needed
   pushAlerts();
 }
 
@@ -2242,6 +2261,142 @@ function saveMotd() {
   applySettings(appSettings); saveSettings();
 }
 function hideMotd() { appSettings.motdOn=false; applySettings(appSettings); saveSettings(); }
+
+// ── DAILY WEATHER QUESTION ────────────────────────────────
+var wxQEnabled = false;
+var wxQTimer = null;
+
+function togWxQ() {
+  wxQEnabled = !wxQEnabled;
+  document.getElementById('wxQTg').classList.toggle('on', wxQEnabled);
+  appSettings.wxQEnabled = wxQEnabled;
+  appSettings.wxQTime = document.getElementById('wxQTime').value;
+}
+
+function generateWxQuestion(d) {
+  if (!d) return null;
+  var cur = d.w.current, daily = d.w.daily;
+  var city = d.name || 'your area';
+  var hi   = Math.round(daily.temperature_2m_max[0]);
+  var lo   = Math.round(daily.temperature_2m_min[0]);
+  var rain = daily.precipitation_probability_max[0];
+  var wind = Math.round(daily.wind_speed_10m_max[0]);
+  var uv   = Math.round(daily.uv_index_max[0] || 0);
+  var code = daily.weather_code[0];
+  var isRain  = (code >= 51 && code <= 82) || rain > 60;
+  var isSnow  = (code >= 71 && code <= 77) || code === 85 || code === 86;
+  var isStorm = code >= 95;
+  var temp = Math.round(cur.temperature_2m);
+  var uvLbl = uv <= 2 ? 'Low' : uv <= 5 ? 'Moderate' : uv <= 7 ? 'High' : uv <= 10 ? 'Very High' : 'Extreme';
+  var ico = isStorm ? 'â›ˆ' : isSnow ? '❄️' : isRain ? '🌧' : hi >= 90 ? '🌡️' : hi >= 75 ? '☀️' : lo <= 32 ? '🥶' : '🌤';
+  var condStr = isStorm ? 'Thunderstorms' : isSnow ? 'Snow' : isRain ? 'Rain (' + rain + '% chance)' : wIco(code,1) + ' ' + wDsc(code);
+
+  // Pick a question based on conditions
+  var questions = [];
+  if (isStorm)          questions.push('⛈ Storms are expected today — are you prepared? Do you have an emergency kit ready?');
+  if (isSnow)           questions.push('❄️ Snow is in the forecast! Have you checked your heating and stocked up on supplies?');
+  if (isRain && rain>60)questions.push('🌧 High chance of rain today — did you grab your umbrella before heading out?');
+  if (hi >= 95)         questions.push('🌡️ Dangerous heat today — are you staying hydrated and avoiding the midday sun?');
+  if (lo <= 28)         questions.push('🥶 Freezing overnight tonight — are your pipes covered and pets inside?');
+  if (wind >= 35)       questions.push('💨 High winds expected — have you secured any outdoor furniture or decorations?');
+  if (uv >= 8)          questions.push('☀️ Very high UV today — did you put on sunscreen before going outside?');
+  if (hi>=75&&hi<90&&!isRain&&!isStorm) questions.push('😊 Beautiful day ahead! Any outdoor plans for today?');
+  if (!questions.length) questions.push('🌤 How are you planning for the weather today in ' + city + '?');
+
+
+function previewWxQ() {
+  var el = document.getElementById('wxQPreview');
+  if (!wData) { el.textContent = 'Load weather for your location first'; return; }
+  var q = generateWxQuestion(wData);
+  el.textContent = q || 'No question generated';
+}
+
+function saveWxQ() {
+  var time = document.getElementById('wxQTime').value;
+  appSettings.wxQEnabled = wxQEnabled;
+  appSettings.wxQTime = time;
+  // Save admin location so worker knows where to fetch weather
+  if (wData) {
+    appSettings.wxQLat = wData.lat;
+    appSettings.wxQLon = wData.lon;
+    appSettings.wxQCity = wData.name;
+  } else if (userLat && userLon) {
+    appSettings.wxQLat = userLat;
+    appSettings.wxQLon = userLon;
+    appSettings.wxQCity = document.getElementById('locIn').value.trim() || 'your area';
+  }
+  saveSettings();
+  scheduleWxQ();
+  var fb = document.getElementById('wxQFb');
+  fb.className = 'pcf ok';
+  fb.textContent = wxQEnabled
+    ? '✓ Daily question scheduled for ' + time + ' for ' + (appSettings.wxQCity||'your location')
+    : '✓ Daily question disabled';
+  setTimeout(function(){ fb.textContent=''; }, 3000);
+  logActivity('Daily weather question ' + (wxQEnabled ? 'enabled at ' + time : 'disabled'));
+}
+
+function scheduleWxQ() {
+  if (wxQTimer) { clearTimeout(wxQTimer); wxQTimer = null; }
+  if (!appSettings.wxQEnabled || !appSettings.wxQTime) return;
+  var parts = appSettings.wxQTime.split(':');
+  var now = new Date();
+  // Convert EST time to local
+  var next = new Date();
+  next.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  var delay = next - now;
+  wxQTimer = setTimeout(function() {
+    fireWxQ();
+    // Reschedule for next day
+    wxQTimer = setInterval(fireWxQ, 86400000);
+  }, delay);
+}
+
+function fireWxQ() {
+  if (!wData) return;
+  var q = generateWxQuestion(wData);
+  if (!q) return;
+  var today = new Date().toDateString();
+  // Mark as fired today so we don't repeat
+  appSettings.wxQLastFired = today;
+  // Set as MOTD for ALL users — saves to Gist so everyone sees it
+  appSettings.motd = q;
+  appSettings.motdOn = true;
+  appSettings.motdColor = '#0288d1';
+  applySettings(appSettings);
+  saveSettings(); // pushes to Gist → everyone sees it within 10s
+  // Push notification for this device
+  if (Notification.permission === 'granted') {
+    try {
+      new Notification('⛈ StormTrack Daily Weather', {
+        body: q,
+        icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+        tag: 'stormtrack-wxq',
+        requireInteraction: false
+      });
+    } catch(e) {}
+  }
+  logActivity('Daily weather question sent: ' + q.slice(0, 50));
+}
+
+function checkWxQSchedule() {
+  // Called every time pullAlerts runs — checks if question should fire
+  if (!appSettings.wxQEnabled || !appSettings.wxQTime) return;
+  if (!wData) return;
+  var now = new Date();
+  var today = now.toDateString();
+  // Don't fire again if already fired today
+  if (appSettings.wxQLastFired === today) return;
+  // Parse the scheduled time
+  var parts = appSettings.wxQTime.split(':');
+  var scheduled = new Date();
+  scheduled.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
+  // Fire if current time is past scheduled time today
+  if (now >= scheduled) {
+    fireWxQ();
+  }
+}
 
 // Sound
 function togSound() { soundOn=!soundOn; appSettings.soundOn=soundOn; document.getElementById('soundTg').classList.toggle('on',soundOn); saveSettings(); }
@@ -4067,7 +4222,7 @@ window.addEventListener('load', function() {
     }
   }
 });
-</script>
+}</script>
 </div><!-- /main-content -->
 </div><!-- /app-shell -->
 </body>
