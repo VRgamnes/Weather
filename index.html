@@ -1533,23 +1533,14 @@ function setWLayer(type, btn) {
       });
 
     } else if (type === 'clouds') {
-      // RainViewer satellite infrared — real satellite cloud imagery, correct path format
-      var satFrames = d && d.satellite && d.satellite.infrared ? d.satellite.infrared : [];
-      if (satFrames.length) {
-        var latestSat = satFrames[satFrames.length - 1];
-        // RainViewer satellite path is a full path like /v2/satellite/1234567/...
-        var satPath = latestSat.path || ('/v2/satellite/' + latestSat.time);
-        radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com' + satPath + '/512/{z}/{x}/{y}/0/0_0.png',
-          { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
-        ).addTo(wMap);
-      } else {
-        // Fallback: show radar if no satellite data
-        radarLayer = L.tileLayer(
-          'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-          { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
-        ).addTo(wMap);
-      }
+      // GOES-East infrared satellite from Iowa State Mesonet — distinct from radar
+      // IR satellite shows cloud tops in grey/white — completely different from radar colors
+      radarLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir/{z}/{x}/{y}.png',
+        { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true,
+          attribution: 'GOES-East IR via Iowa State Mesonet',
+          errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' }
+      ).addTo(wMap);
     }
   });
 }
@@ -1701,6 +1692,25 @@ function renderNWSOnMap(map, features) {
   });
 }
 
+// NWS alerts shown in the active alerts banner — separate from user alerts
+var nwsBannerAlerts = [];
+
+function pointInGeoJSONPoly(lat, lon, feature) {
+  var geom = feature.geometry;
+  if (!geom) return false;
+  var rings = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  for (var r = 0; r < rings.length; r++) {
+    var coords = rings[r][0];
+    var latlngs = coords.map(function(c){ return [c[1], c[0]]; });
+    if (pointInPolygon(lat, lon, latlngs)) return true;
+    // Check within 10 miles of border
+    for (var i = 0; i < latlngs.length; i++) {
+      if (distanceMiles(lat, lon, latlngs[i][0], latlngs[i][1]) <= 10) return true;
+    }
+  }
+  return false;
+}
+
 function loadNWSAlerts(map) {
   fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert', {
     headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0 (weather alert app)' }
@@ -1709,17 +1719,199 @@ function loadNWSAlerts(map) {
   .then(function(d) {
     nwsData = d.features || [];
     renderNWSOnMap(map, nwsData);
-    // Update NWS badge count
+    // Update map badge
     var badge = document.getElementById('nwsBadge');
     if (badge) {
       badge.textContent = nwsData.length ? nwsData.length : '';
       badge.style.display = nwsData.length ? 'inline-block' : 'none';
     }
+    // Inject NWS alerts that cover user location into active alerts banner
+    injectNWSBannerAlerts();
   })
   .catch(function(e) { console.log('NWS load error:', e); });
 }
 
+function injectNWSBannerAlerts() {
+  if (!nwsData || !nwsData.length) { nwsBannerAlerts = []; renderA(); return; }
+  var lat = userLat, lon = userLon;
+  nwsBannerAlerts = [];
+  nwsData.forEach(function(f) {
+    var p = f.properties;
+    if (!p || p.status !== 'Actual') return;
+    // Check if user is in this alert zone
+    var inZone = pointInGeoJSONPoly(lat, lon, f);
+    // Also check by area description if no polygon (some NWS alerts use UGC zones not polygons)
+    if (!f.geometry && p.areaDesc) inZone = true; // fallback — show if no polygon data
+    if (!inZone) return;
+    var event = p.event || 'Alert';
+    var sev = NWS_SEV_MAP[event] || (p.severity==='Extreme'?'emergency':p.severity==='Severe'?'warning':p.severity==='Moderate'?'watch':'advisory');
+    var icon = NWS_ICON_MAP[event] || SEV_ICO[sev] || '⚠️';
+    var expires = p.expires ? new Date(p.expires) : null;
+    if (expires && expires < new Date()) return; // skip expired
+    nwsBannerAlerts.push({
+      id: 'nws_' + (p.id || Math.random()),
+      type: sev, severity: sev,
+      title: event,
+      msg: (p.headline || p.description || '').slice(0, 150),
+      icon: icon,
+      area: p.areaDesc || '',
+      expires: expires,
+      onset: p.onset ? new Date(p.onset) : null,
+      isNWS: true, // flag so we don't try to edit/delete
+      active: true, expired: false,
+      zoneLatLngs: []
+    });
+  });
+  renderA(); // re-render active alerts banner with NWS entries included
+  // Fire notifications for new NWS alerts in user area
+  if (Notification.permission === 'granted') {
+    var notified = JSON.parse(localStorage.getItem('st_nws_notified') || '[]');
+    nwsBannerAlerts.forEach(function(a) {
+      if (notified.indexOf(a.id) >= 0) return;
+      notified.push(a.id);
+      fireNotification(a);
+    });
+    try { localStorage.setItem('st_nws_notified', JSON.stringify(notified.slice(-200))); } catch(e) {}
+  }
+}
 
+
+
+// NWS alerts that apply to user's location — shown in the weather page panel
+var nwsPanelAlerts = [];
+function injectNWSIntoPanel(features) {
+  nwsPanelAlerts = [];
+  if (!features || !features.length) { renderA(); return; }
+  features.forEach(function(f) {
+    var p = f.properties;
+    var geom = f.geometry;
+    if (!p || !p.event) return;
+    var event = p.event || 'Alert';
+    var severity = p.severity || 'Unknown';
+    var sev = getNWSSev(event, severity);
+    var icon = NWS_ICON_MAP[event] || SEV_ICO[sev] || '⚠️';
+    var headline = p.headline || event;
+    var desc = (p.description || '').slice(0, 200);
+    var expires = p.expires ? new Date(p.expires) : null;
+    var area = p.areaDesc || '';
+    // Check if user is in affected area
+    // Use areaDesc to match state/county, or check polygon geometry
+    var appliesToUser = false;
+    // Method 1: check polygon geometry if available
+    if (geom && geom.coordinates && userLat && userLon) {
+      var coords = geom.coordinates;
+      var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
+      rings.forEach(function(ring) {
+        if (appliesToUser) return;
+        var latlngs = ring[0].map(function(c){ return [c[1], c[0]]; });
+        if (pointInPolygon(userLat, userLon, latlngs) || isNearZone(userLat, userLon, latlngs, 10)) {
+          appliesToUser = true;
+        }
+      });
+    }
+    // Method 2: no geometry — check if area matches user's state/region
+    if (!appliesToUser && wData && area) {
+      var region = (wData.region || '').toLowerCase();
+      var country = (wData.country || '').toLowerCase();
+      if (region && area.toLowerCase().indexOf(region.slice(0,4)) >= 0) appliesToUser = true;
+      if (!appliesToUser && area.toLowerCase().indexOf('nationwide') >= 0) appliesToUser = true;
+    }
+    if (!appliesToUser) return;
+    // Build a panel-compatible alert object (read-only, not saved)
+    nwsPanelAlerts.push({
+      id: 'nws_' + (p.id || Math.random()),
+      type: sev, severity: sev, events: [],
+      title: event,
+      msg: headline + (area ? ' — ' + area : ''),
+      fullDesc: desc,
+      expires: expires,
+      active: true, expired: false, scheduled: false,
+      push: false, redAlert: sev === 'emergency' || sev === 'warning',
+      zoneLatLngs: [], nws: true, icon: icon
+    });
+  });
+  renderA();
+  // Red screen for NWS emergency/warning in your area
+  if (nwsPanelAlerts.some(function(a){ return (a.severity==='emergency'||a.severity==='warning') && a.redAlert; })) {
+    document.body.classList.add('red');
+  }
+  // Notification for new NWS alerts in your area
+  nwsPanelAlerts.forEach(function(a) {
+    var key = 'nws_notif_' + a.id;
+    if (!localStorage.getItem(key) && Notification.permission === 'granted') {
+      localStorage.setItem(key, '1');
+      fireNotification(a);
+    }
+  });
+}
+
+// Inject NWS alerts that cover user location into the active alerts display
+var nwsInjected = []; // track injected NWS alert IDs so we don't duplicate
+
+function injectNWSActiveAlerts() {
+  if (!nwsData || !nwsData.length) return;
+  // Remove previously injected NWS alerts from display list
+  nwsInjected.forEach(function(id) {
+    alerts = alerts.filter(function(a){ return a.id !== id; });
+  });
+  nwsInjected = [];
+
+  nwsData.forEach(function(f) {
+    var p = f.properties;
+    var geom = f.geometry;
+    if (!p || !geom) return;
+
+    // Check if user is in this alert zone
+    var inZone = false;
+    if (userLat && userLon) {
+      var coords = geom.coordinates;
+      var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
+      rings.forEach(function(ring) {
+        if (inZone) return;
+        var latlngs = ring[0].map(function(c){ return [c[1], c[0]]; });
+        if (pointInPolygon(userLat, userLon, latlngs)) inZone = true;
+        if (!inZone) {
+          // Check 10 mile buffer too
+          for (var i=0; i<latlngs.length; i++) {
+            if (distanceMiles(userLat, userLon, latlngs[i][0], latlngs[i][1]) <= 10) { inZone=true; break; }
+          }
+        }
+      });
+    } else {
+      inZone = false; // no location yet — don't show
+    }
+
+    if (!inZone) return;
+
+    var event = p.event || 'Weather Alert';
+    var sev = getNWSSev(event, p.severity || 'Unknown');
+    var icon = NWS_ICON_MAP[event] || SEV_ICO[sev] || '⚠️';
+    var expires = p.expires ? new Date(p.expires) : null;
+    var id = 'nws_' + (p.id || event + Date.now()).replace(/[^a-z0-9]/gi,'_');
+
+    // Don't add duplicates
+    if (nwsInjected.indexOf(id) >= 0) return;
+    nwsInjected.push(id);
+
+    var a = {
+      id: id,
+      type: sev, severity: sev, events: [],
+      title: event,
+      msg: (p.headline || p.description || '').slice(0, 200),
+      push: false, redAlert: sev === 'emergency' || sev === 'warning',
+      created: new Date(), active: true, scheduled: false, expired: false,
+      expires: expires,
+      zoneLatLngs: [],
+      nwsGenerated: true, // flag so we know it's from NWS not admin
+      areaDesc: p.areaDesc || ''
+    };
+    alerts.unshift(a);
+  });
+
+  // Re-render alerts
+  renderA();
+  chkRed();
+}
 
 function toggleNWSLayer(btn) {
   nwsLayerOn = !nwsLayerOn;
@@ -3030,17 +3222,48 @@ function alertAppliesToCity(a) {
 function renderA() {
   var c=document.getElementById('alertsContainer'); if(!c) return;
   var act=alerts.filter(function(a){ return a.active && !a.expired && alertAppliesToCity(a); });
-  if(!act.length){c.innerHTML='<div class="na">No active alerts for '+( wData ? wData.name : 'your area')+'</div>';return;}
-  c.innerHTML=act.map(function(a){
-    var hasZone = a.zoneLatLngs && a.zoneLatLngs.length > 2;
+  var allActs = act.concat(nwsPanelAlerts || []);
+  if(!allActs.length){c.innerHTML='<div class="na">No active alerts for '+( wData ? wData.name : 'your area')+'</div>';return;}
+  c.innerHTML=allActs.map(function(a){
+    var sev = getAlertSev(a);
+    var color = getAlertColor(a);
+    var icon = a.nws ? (a.icon||'⚠️') : getAlertIcon(a);
+    var label = a.nws ? (SEV_LBL[sev]||sev) : getAlertLabel(a);
+    var hasZone = !a.nws && a.zoneLatLngs && a.zoneLatLngs.length > 2;
     var inZone  = hasZone ? pointInPolygon(userLat, userLon, a.zoneLatLngs) : false;
     var nearTag = hasZone ? (inZone ? ' · <b>In zone</b>' : ' · Near zone') : '';
-    return '<div class="ab '+a.type+'" onclick="openMod('+a.id+')">' +
-      '<div class="ai">'+ICO[a.type]+'</div>' +
-      '<div style="flex:1;min-width:0"><div class="at">'+a.title+'</div>' +
-      '<div class="ap">'+a.msg+'</div>' +
-      '<div class="atap" style="display:flex;align-items:center;gap:8px">Tap for details'+nearTag+' <button class="share-btn" onclick="event.stopPropagation();shareAlert('+a.id+')" style="font-size:10px;padding:2px 7px">Share</button></div></div></div>';
+    var nwsTag  = a.nws ? '<span style="font-size:10px;background:rgba(79,195,247,.15);color:var(--a);border:1px solid rgba(79,195,247,.3);border-radius:6px;padding:1px 6px;margin-left:4px">NWS Official</span>' : '';
+    var expires = a.expires ? ' · Expires ' + fmt(a.expires) : '';
+    var clickFn = a.nws ? 'openNWSMod("'+a.id+'")' : 'openMod('+a.id+')';
+    return '<div class="ab '+sev+'" style="border-left:3px solid '+color+'" onclick="'+clickFn+'">' +
+      '<div class="ai" style="font-size:18px">'+icon+'</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">' +
+          '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:'+color+'33;color:'+color+';border:1px solid '+color+'55;font-weight:500">'+label+'</span>' +
+          nwsTag +
+        '</div>' +
+        '<div class="at">'+a.title+nwsTag+'</div>' +
+        '<div class="ap">'+a.msg+'</div>' +
+        '<div class="atap">Tap for details'+nearTag+expires+'</div>' +
+      '</div></div>';
   }).join('');
+}
+
+function openNWSMod(id) {
+  var a = (nwsPanelAlerts||[]).find(function(x){ return x.id===id; });
+  if (!a) return;
+  var color = getAlertColor(a);
+  var mb = document.getElementById('mBdg');
+  var mt = document.getElementById('mTitle');
+  var mm = document.getElementById('mMsg');
+  if (mb) { mb.textContent = (a.icon||'⚠️')+' '+SEV_LBL[getAlertSev(a)]; mb.style.cssText='background:'+color+'33;color:'+color+';border:1px solid '+color+'55;border-radius:12px;padding:3px 10px;font-size:12px'; }
+  if (mt) mt.textContent = a.title;
+  if (mm) mm.innerHTML = '<div style="margin-bottom:8px">'+a.msg+'</div>'+(a.fullDesc?'<div style="font-size:12px;color:var(--mut);line-height:1.6">'+a.fullDesc+'</div>':'')+'<div style="font-size:11px;color:var(--a);margin-top:8px">📡 Source: National Weather Service</div>'+(a.expires?'<div style="font-size:11px;color:var(--mut);margin-top:4px">⌛ Expires: '+fmt(a.expires)+'</div>':'');
+  var mw = document.getElementById('modW');
+  var mZM = document.getElementById('mZM');
+  if (mZM) mZM.style.display = 'none';
+  if (mw) mw.classList.add('on');
+  showPage(false,false,false,true);
 }
 function renderH() {
   var c=document.getElementById('hC'); if(!c) return;
