@@ -793,6 +793,16 @@ body.light-mode .ab{color:#1a2332}
   </div>
 
   <div class="ac">
+    <div class="ct">GitHub Token</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Token expired? Paste new one here. Never stored in code — saved only to this browser.</div>
+    <div style="display:flex;gap:7px;margin-bottom:6px">
+      <input class="inp" id="ghTokenInput" type="password" placeholder="ghp_..." style="flex:1"/>
+      <button class="pcb" onclick="saveGHToken()">Save</button>
+    </div>
+    <div class="pcf" id="ghTokenFb"></div>
+    <div style="font-size:11px;color:var(--mut);margin-top:4px">Current token: <span id="ghTokenStatus" style="color:var(--ok)"></span></div>
+  </div>
+  <div class="ac">
     <div class="ct">Change PIN</div>
     <div class="pcr">
       <input class="inp" id="nP" type="password" maxlength="4" placeholder="New PIN" inputmode="numeric"/>
@@ -1600,7 +1610,7 @@ function pointInGeoJSONPoly(lat, lon, feature) {
 
 function loadNWSAlerts(map) {
   nwsData = [];
-  fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land&limit=500', {
+  fetch('https://api.weather.gov/alerts/active?status=actual&limit=500', {
     headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' }
   })
   .then(function(r) {
@@ -2031,6 +2041,13 @@ function goW() {
   showPage(true, false, false, false);
 }
 function goAdmin() {
+  // Show token status
+  var status = document.getElementById('ghTokenStatus');
+  if (status) {
+    var t = GIST_TOKEN;
+    status.textContent = t ? t.slice(0,8)+'... (set)' : 'Not set — enter token above';
+    status.style.color = t ? 'var(--ok)' : 'var(--dng)';
+  }
   document.getElementById('tA').classList.add('on');
   document.getElementById('tW').classList.remove('on');
   if (admOpen) {
@@ -2058,6 +2075,25 @@ function checkPin() {
     setTimeout(function() { pinE = ''; updDots(); }, 700);
   }
 }
+function saveGHToken() {
+  var t = document.getElementById('ghTokenInput').value.trim();
+  if (!t.startsWith('ghp_') && !t.startsWith('github_pat_')) {
+    document.getElementById('ghTokenFb').className='pcf er';
+    document.getElementById('ghTokenFb').textContent='Invalid token format';
+    return;
+  }
+  localStorage.setItem('st_gh_token', t);
+  GIST_TOKEN = t;
+  document.getElementById('ghTokenInput').value='';
+  document.getElementById('ghTokenFb').className='pcf ok';
+  document.getElementById('ghTokenFb').textContent='✓ Token saved!';
+  document.getElementById('ghTokenStatus').textContent = t.slice(0,8)+'...';
+  setTimeout(function(){ document.getElementById('ghTokenFb').textContent=''; }, 3000);
+  logActivity('GitHub token updated');
+  // Test it
+  pullAlerts();
+}
+
 function chgPin() {
   var np = document.getElementById('nP').value.trim(), cp = document.getElementById('cP').value.trim(), fb = document.getElementById('pFb');
   if (!/^\d{4}$/.test(np)) { fb.className='pcf er'; fb.textContent='Must be 4 digits.'; return; }
