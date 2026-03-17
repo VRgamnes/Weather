@@ -214,6 +214,13 @@ body.light-mode .ab{color:#1a2332}
 .ucount{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:5px}
 .ucount-dot{width:7px;height:7px;border-radius:50%;background:#43a047;animation:ping 2s infinite}
 
+.nws-popup .leaflet-popup-content-wrapper{background:#0d1f35;border:1px solid rgba(79,195,247,.2);border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.5)}
+.nws-popup .leaflet-popup-tip{background:#0d1f35}
+.nws-popup .leaflet-popup-content{margin:12px;color:#e8f4fd;font-family:"DM Sans",sans-serif}
+.nws-poly{transition:fill-opacity .2s}
+.nws-poly:hover{fill-opacity:.4!important}
+.user-alert-poly{transition:fill-opacity .2s}
+.user-alert-poly:hover{fill-opacity:.45!important}
 /* Ticker */
 .ticker-wrap{overflow:hidden;background:rgba(229,57,53,.15);border-bottom:1px solid rgba(229,57,53,.3);padding:5px 0;display:none}
 .ticker-wrap.on{display:block}
@@ -540,6 +547,7 @@ body.light-mode .ab{color:#1a2332}
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
+    <button class="mc-btn on" id="nwsBtn" onclick="toggleNWSLayer(this)" title="Toggle NWS official alert zones">⚠️ NWS Zones<span id="nwsBadge" style="display:none;background:#e53935;color:#fff;border-radius:8px;font-size:9px;padding:1px 5px;margin-left:4px;vertical-align:top"></span></button>
     <button class="mc-btn" id="lightningBtn" onclick="toggleLightningBtn(this)">⚡ Lightning</button>
     <button class="mc-btn" id="quakeBtn" onclick="toggleEarthquakes(this)">🔴 Quakes</button>
     <button class="mc-btn" id="snowBtn" onclick="setWLayer('snow',this)">❄️ Snow</button>
@@ -1551,20 +1559,189 @@ function updateUserMarker(lat, lon, cityName) {
 }
 
 // Alert zones on weather map
+// ── NWS LIVE ALERT POLYGONS ──────────────────────────────
+var nwsPolygons = [];
+var nwsLayerOn = true;
+var nwsData = null; // cached NWS features
+
+var NWS_SEV_MAP = {
+  'Tornado Warning':'emergency','Tornado Watch':'watch',
+  'Severe Thunderstorm Warning':'warning','Severe Thunderstorm Watch':'watch',
+  'Flash Flood Warning':'warning','Flash Flood Watch':'watch','Flood Warning':'warning','Flood Watch':'watch',
+  'Hurricane Warning':'emergency','Hurricane Watch':'watch','Hurricane Local Statement':'advisory',
+  'Tropical Storm Warning':'warning','Tropical Storm Watch':'watch',
+  'Winter Storm Warning':'warning','Winter Storm Watch':'watch','Blizzard Warning':'emergency',
+  'Ice Storm Warning':'warning','Winter Weather Advisory':'advisory',
+  'Freezing Rain Advisory':'advisory','Wind Chill Warning':'warning','Wind Chill Advisory':'advisory',
+  'Wind Advisory':'advisory','High Wind Warning':'warning','High Wind Watch':'watch',
+  'Heat Advisory':'advisory','Excessive Heat Warning':'warning','Excessive Heat Watch':'watch',
+  'Dense Fog Advisory':'advisory','Frost Advisory':'advisory','Freeze Warning':'warning',
+  'Coastal Flood Warning':'warning','Coastal Flood Watch':'watch','Coastal Flood Advisory':'advisory',
+  'Rip Current Statement':'advisory','Beach Hazards Statement':'advisory',
+  'Special Weather Statement':'advisory','Hazardous Weather Outlook':'advisory',
+  'Air Quality Alert':'advisory','Red Flag Warning':'warning'
+};
+
+var NWS_ICON_MAP = {
+  'Tornado Warning':'🌪️','Tornado Watch':'🌪️',
+  'Severe Thunderstorm Warning':'⛈','Severe Thunderstorm Watch':'⛈',
+  'Flash Flood Warning':'🌊','Flood Warning':'🌊','Flood Watch':'🌊',
+  'Hurricane Warning':'🌀','Hurricane Watch':'🌀',
+  'Winter Storm Warning':'❄️','Blizzard Warning':'❄️','Winter Weather Advisory':'❄️',
+  'High Wind Warning':'💨','Wind Advisory':'💨',
+  'Excessive Heat Warning':'🌡️','Heat Advisory':'🌡️',
+  'Dense Fog Advisory':'🌫️','Frost Advisory':'🧊','Freeze Warning':'🧊',
+  'Air Quality Alert':'🌿','Red Flag Warning':'🔥'
+};
+
+function getNWSSevColor(event, severity) {
+  var sev = NWS_SEV_MAP[event] ||
+    (severity === 'Extreme' ? 'emergency' :
+     severity === 'Severe' ? 'warning' :
+     severity === 'Moderate' ? 'watch' : 'advisory');
+  return SEV_COLOR[sev] || '#4fc3f7';
+}
+
+function getNWSSev(event, severity) {
+  return NWS_SEV_MAP[event] ||
+    (severity === 'Extreme' ? 'emergency' :
+     severity === 'Severe' ? 'warning' :
+     severity === 'Moderate' ? 'watch' : 'advisory');
+}
+
+function clearNWSPolygons(map) {
+  nwsPolygons.forEach(function(p) { try { map.removeLayer(p); } catch(e) {} });
+  nwsPolygons = [];
+}
+
+function renderNWSOnMap(map, features) {
+  clearNWSPolygons(map);
+  if (!nwsLayerOn || !features) return;
+  features.forEach(function(f) {
+    var p = f.properties;
+    var geom = f.geometry;
+    if (!geom || !geom.coordinates) return;
+    var event = p.event || 'Alert';
+    var severity = p.severity || 'Unknown';
+    var color = getNWSSevColor(event, severity);
+    var sev = getNWSSev(event, severity);
+    var icon = NWS_ICON_MAP[event] || SEV_ICO[sev] || '⚠️';
+    var urgency = p.urgency || '';
+    var certainty = p.certainty || '';
+    var headline = p.headline || event;
+    var desc = (p.description || '').slice(0, 300);
+    var instruction = (p.instruction || '').slice(0, 200);
+    var onset = p.onset ? new Date(p.onset).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    var expires = p.expires ? new Date(p.expires).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    var area = p.areaDesc || '';
+    // Dash array by severity — emergency solid, warning short dash, watch long dash, advisory dotted
+    var dash = sev==='emergency'?null:sev==='warning'?'6,4':sev==='watch'?'10,6':'4,8';
+    var fillOp = sev==='emergency'?0.28:sev==='warning'?0.22:sev==='watch'?0.16:0.1;
+    var weight = sev==='emergency'?3:sev==='warning'?2.5:2;
+
+    // GeoJSON can be Polygon or MultiPolygon
+    var coords = geom.coordinates;
+    var rings = [];
+    if (geom.type === 'Polygon') rings = [coords];
+    else if (geom.type === 'MultiPolygon') rings = coords;
+    else return;
+
+    rings.forEach(function(ring) {
+      var latlngs = ring[0].map(function(c) { return [c[1], c[0]]; });
+      if (latlngs.length < 3) return;
+      var poly = L.polygon(latlngs, {
+        color: color, weight: weight,
+        fillColor: color, fillOpacity: fillOp,
+        dashArray: dash,
+        className: 'nws-poly nws-' + sev
+      }).addTo(map);
+
+      // Rich popup with full alert info
+      var popupHtml =
+        '<div style="min-width:220px;max-width:280px">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+          '<span style="font-size:22px">'+icon+'</span>' +
+          '<div>' +
+            '<div style="font-weight:600;font-size:14px;line-height:1.2">'+event+'</div>' +
+            '<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:'+color+'33;color:'+color+';border:1px solid '+color+'55;font-weight:500">'+sev.toUpperCase()+'</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;font-weight:500;color:#e8f4fd;margin-bottom:6px;line-height:1.4">'+headline+'</div>' +
+        '<div style="font-size:11px;color:#7eb8d4;margin-bottom:4px">📍 '+area+'</div>' +
+        '<div style="display:flex;gap:12px;font-size:11px;color:#7eb8d4;margin-bottom:8px">' +
+          '<span>⏰ '+onset+'</span><span>⌛ Expires: '+expires+'</span>' +
+        '</div>' +
+        (desc ? '<div style="font-size:11px;color:#b0c4d8;line-height:1.5;margin-bottom:6px;border-top:1px solid rgba(255,255,255,.1);padding-top:6px">'+desc+(p.description&&p.description.length>300?'…':'')+'</div>' : '') +
+        (instruction ? '<div style="font-size:11px;color:#ffb74d;line-height:1.5;margin-bottom:6px">⚡ '+instruction+'</div>' : '') +
+        '<div style="display:flex;gap:6px;font-size:10px;color:#7eb8d4">' +
+          '<span>Urgency: '+urgency+'</span><span>Certainty: '+certainty+'</span>' +
+        '</div>' +
+
+        '</div>';
+
+      poly.bindPopup(popupHtml, { maxWidth: 300, className: 'nws-popup' });
+      nwsPolygons.push(poly);
+    });
+  });
+}
+
+function loadNWSAlerts(map) {
+  fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert', {
+    headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0 (weather alert app)' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    nwsData = d.features || [];
+    renderNWSOnMap(map, nwsData);
+    // Update NWS badge count
+    var badge = document.getElementById('nwsBadge');
+    if (badge) {
+      badge.textContent = nwsData.length ? nwsData.length : '';
+      badge.style.display = nwsData.length ? 'inline-block' : 'none';
+    }
+  })
+  .catch(function(e) { console.log('NWS load error:', e); });
+}
+
+
+
+function toggleNWSLayer(btn) {
+  nwsLayerOn = !nwsLayerOn;
+  if (btn) btn.classList.toggle('on', nwsLayerOn);
+  if (nwsLayerOn) {
+    if (nwsData) renderNWSOnMap(wMap, nwsData);
+    else loadNWSAlerts(wMap);
+  } else {
+    clearNWSPolygons(wMap);
+  }
+}
+
 function addAlertZonesToMap(map) {
-  // Clear old
-  alertPolygons.forEach(function(p) { map.removeLayer(p); });
+  // Clear user alert polygons
+  alertPolygons.forEach(function(p) { try { map.removeLayer(p); } catch(e) {} });
   alertPolygons = [];
+  // Draw user-created alerts on top
   var active = alerts.filter(function(a) { return a.active && !a.expired && a.zoneLatLngs && a.zoneLatLngs.length > 2; });
   active.forEach(function(a) {
-    var color = TCOL[a.type] || '#4fc3f7';
+    var color = getAlertColor(a);
+    var sev = getAlertSev(a);
     var poly = L.polygon(a.zoneLatLngs, {
-      color: color, weight: 2.5, fillColor: color, fillOpacity: 0.2, dashArray: null
+      color: color, weight: 3, fillColor: color, fillOpacity: 0.25,
+      dashArray: null, className: 'user-alert-poly'
     }).addTo(map);
+    var icon = getAlertIcon(a), label = getAlertLabel(a);
+    var expires = a.expires ? 'Expires: '+fmt(a.expires) : '';
     poly.bindPopup(
-      '<div class="lpop-title">' + ICO[a.type] + ' ' + a.title + '</div>' +
-      '<span class="lpop-type" style="background:' + FCOL[a.type] + '0.2);color:' + color + ';border:1px solid ' + FCOL[a.type] + '0.5)">' + LBL[a.type] + '</span>' +
-      '<div class="lpop-msg">' + a.msg + '</div>'
+      '<div style="min-width:200px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+        '<span style="font-size:20px">'+icon+'</span>' +
+        '<div><div style="font-weight:600;font-size:14px">'+a.title+'</div>' +
+        '<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:'+color+'33;color:'+color+';border:1px solid '+color+'55">'+label+'</span></div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#b0c4d8;line-height:1.5;margin-bottom:6px">'+a.msg+'</div>' +
+      (expires?'<div style="font-size:11px;color:#7eb8d4">'+expires+'</div>':'') +
+      '<button onclick="editA('+a.id+');goAdmin()" style="margin-top:8px;width:100%;background:var(--card);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:11px;padding:6px;cursor:pointer;font-family:sans-serif">✏️ Edit Alert</button>' +
+      '</div>'
     );
     alertPolygons.push(poly);
   });
@@ -3569,6 +3746,10 @@ window.addEventListener('resize', function() {
 window.addEventListener('load', function() {
   document.getElementById('adminMap').style.display = 'none';
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
+  // Load NWS alert zones on startup
+  setTimeout(function() { try { loadNWSAlerts(wMap); } catch(e) {} }, 2000);
+  // Refresh NWS every 5 minutes
+  setInterval(function() { try { if(nwsLayerOn && wMap) loadNWSAlerts(wMap); } catch(e) {} }, 300000);
   // Auto-detect GPS location on load — use coordinates directly, no re-geocoding drift
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
