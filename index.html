@@ -1128,8 +1128,13 @@ function pullAlerts() {
     showSyncStatus('Live', 'var(--ok)');
   })
   .catch(function(e) {
-    var msg = e.message || 'Unknown error';
-    reportError('sync', 'Alert server unreachable', msg + ' | Worker: ' + WORKER_URL);
+    var msg = (e.message || 'Unknown').replace(/^Error: /, '');
+    // Only report if not just "Load failed" (common when offline)
+    if (msg !== 'Load failed' && msg !== 'Failed to fetch') {
+      reportError('sync', 'Alert server: ' + msg, 'Worker: ' + WORKER_URL);
+    } else {
+      showSyncStatus('📡 Offline', 'var(--mut)');
+    }
     var wc = document.getElementById('wC');
     if (wc) {
       var errDiv = document.getElementById('syncErrDiv');
@@ -2306,9 +2311,23 @@ function generateWxQuestion(d) {
 
 function previewWxQ() {
   var el = document.getElementById('wxQPreview');
-  if (!wData) { el.textContent = 'Load weather for your location first'; return; }
-  var q = generateWxQuestion(wData);
-  el.textContent = q || 'No question generated';
+  if (!el) return;
+  // Try wData, then cached weather
+  var d = wData;
+  if (!d) {
+    try {
+      var cached = localStorage.getItem('st_wx_cache');
+      if (cached) d = JSON.parse(cached);
+    } catch(e) {}
+  }
+  if (!d) {
+    el.textContent = 'Load weather first (go to Weather tab and let it load)';
+    el.style.color = 'var(--dng)';
+    return;
+  }
+  var q = generateWxQuestion(d);
+  el.textContent = q || 'No question generated for current conditions';
+  el.style.color = 'var(--a)';
 }
 
 function saveWxQ() {
@@ -2325,19 +2344,42 @@ function saveWxQ() {
     appSettings.wxQLon = userLon;
     appSettings.wxQCity = document.getElementById('locIn').value.trim() || 'your area';
   }
+  // Save locally so it persists even if Gist fails
+  try { localStorage.setItem('st_wxq', JSON.stringify({
+    enabled: wxQEnabled,
+    time: time,
+    lat: appSettings.wxQLat,
+    lon: appSettings.wxQLon,
+    city: appSettings.wxQCity
+  })); } catch(e) {}
   saveSettings();
   scheduleWxQ();
   var fb = document.getElementById('wxQFb');
-  fb.className = 'pcf ok';
-  fb.textContent = wxQEnabled
-    ? '✓ Daily question scheduled for ' + time + ' for ' + (appSettings.wxQCity||'your location')
-    : '✓ Daily question disabled';
-  setTimeout(function(){ fb.textContent=''; }, 3000);
+  if (fb) {
+    fb.className = 'pcf ok';
+    fb.textContent = wxQEnabled
+      ? '✓ Scheduled daily at ' + time + ' for ' + (appSettings.wxQCity || 'your location')
+      : '✓ Daily question disabled';
+    setTimeout(function(){ fb.textContent = ''; }, 4000);
+  }
   logActivity('Daily weather question ' + (wxQEnabled ? 'enabled at ' + time : 'disabled'));
 }
 
 function scheduleWxQ() {
   if (wxQTimer) { clearTimeout(wxQTimer); wxQTimer = null; }
+  // Restore from localStorage if appSettings not yet loaded from Gist
+  if (!appSettings.wxQEnabled && !appSettings.wxQTime) {
+    try {
+      var stored = JSON.parse(localStorage.getItem('st_wxq') || '{}');
+      if (stored.enabled) {
+        appSettings.wxQEnabled = stored.enabled;
+        appSettings.wxQTime = stored.time;
+        appSettings.wxQLat = stored.lat;
+        appSettings.wxQLon = stored.lon;
+        appSettings.wxQCity = stored.city;
+      }
+    } catch(e) {}
+  }
   if (!appSettings.wxQEnabled || !appSettings.wxQTime) return;
   var parts = appSettings.wxQTime.split(':');
   var now = new Date();
@@ -2381,21 +2423,24 @@ function fireWxQ() {
 }
 
 function checkWxQSchedule() {
-  // Called every time pullAlerts runs — checks if question should fire
   if (!appSettings.wxQEnabled || !appSettings.wxQTime) return;
-  if (!wData) return;
   var now = new Date();
   var today = now.toDateString();
-  // Don't fire again if already fired today
   if (appSettings.wxQLastFired === today) return;
-  // Parse the scheduled time
   var parts = appSettings.wxQTime.split(':');
   var scheduled = new Date();
   scheduled.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
-  // Fire if current time is past scheduled time today
-  if (now >= scheduled) {
-    fireWxQ();
+  if (now < scheduled) return;
+  // Use stored location if available, otherwise current wData
+  if (!wData && appSettings.wxQLat && appSettings.wxQLon) {
+    // Fetch weather for stored location then fire
+    fetchWeatherData(appSettings.wxQLat, appSettings.wxQLon,
+      appSettings.wxQCity || 'your area', '', '');
+    // Will fire on next check once wData is loaded
+    return;
   }
+  if (!wData) return;
+  fireWxQ();
 }
 
 // Sound
