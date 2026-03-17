@@ -1434,30 +1434,23 @@ function setWLayer(type, btn) {
     radarLayer.on('tileerror', function(e) { reportError('radar','NEXRAD tile error',e.tile&&e.tile.src); });
 
   } else if (type === 'wind') {
-    // Iowa Mesonet HRRR wind speed — reliable, always works
-    radarLayer = L.tileLayer(base + 'hrrr::WIND:10_m_above_ground:anl/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.8 }));
-    radarLayer.on('tileerror', function() {
-      if (wMap && radarLayer) wMap.removeLayer(radarLayer);
-      // Fallback: US surface analysis wind
-      radarLayer = L.tileLayer(base + 'iemre-wind_speed/{z}/{x}/{y}.png',
-        Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
-      radarLayer.on('tileerror', function(e){ reportError('layer','Wind tiles unavailable',e.tile&&e.tile.src); });
+    // Iowa Mesonet IEM realtime wind analysis — valid tile URL
+    radarLayer = L.tileLayer(base + 'iemre-wind_speed/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.82 }));
+    radarLayer.on('tileerror', function(e) {
+      reportError('layer', 'Wind tiles failed — try again later');
     });
     radarLayer.addTo(wMap);
-    // Light radar on top for context
+    // Light NEXRAD on top for context
     wLayerObj = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png',
       Object.assign({}, opts, { opacity: 0.25, zIndex: 3 })).addTo(wMap);
 
   } else if (type === 'temp') {
-    // Iowa Mesonet HRRR 2m temperature — purple/blue/green/yellow/red scale
-    radarLayer = L.tileLayer(base + 'hrrr::TMP:2_m_above_ground:anl/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.8 }));
-    radarLayer.on('tileerror', function() {
-      if (wMap && radarLayer) wMap.removeLayer(radarLayer);
-      radarLayer = L.tileLayer(base + 'iemre-tmpf/{z}/{x}/{y}.png',
-        Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
-      radarLayer.on('tileerror', function(e){ reportError('layer','Temp tiles unavailable',e.tile&&e.tile.src); });
+    // Iowa Mesonet IEM realtime temperature — valid tile URL
+    radarLayer = L.tileLayer(base + 'iemre-tmpf/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.82 }));
+    radarLayer.on('tileerror', function(e) {
+      reportError('layer', 'Temp tiles failed — try again later');
     });
     radarLayer.addTo(wMap);
 
@@ -3349,7 +3342,7 @@ function fetchWeatherData(lat, lon, name, region, country) {
         '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=7';
       return fetch(url)
         .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
-        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};try{localStorage.setItem('st_wx_cache',JSON.stringify(wData));}catch(e){}if(curWTab==='main'||!curWTab){renderWx(wData);}setLastUpdated();chkRed();});
+        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};try{localStorage.setItem('st_wx_cache',JSON.stringify(wData));}catch(e){}renderWx(wData);setLastUpdated();chkRed();});
 }
 
 function renderWx(d) {
@@ -3919,10 +3912,24 @@ setInterval(function() {
 // Weather auto-refresh every 10 min
 setInterval(function(){
   if (!wData) return;
-  // Only silently refresh weather data — don't touch map layers or tabs
-  var city = document.getElementById('locIn').value.trim() || wData.name || 'New York';
-  // Fetch updated weather silently, update wData without calling full renderWx
-  fetchWeatherData(wData.lat, wData.lon, wData.name, wData.region, wData.country);
+  // Silent background refresh — just update wData cache, don't re-render
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude='+wData.lat+'&longitude='+wData.lon+
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,precipitation,surface_pressure,visibility'+
+    '&hourly=temperature_2m,weather_code,precipitation_probability,is_day'+
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max'+
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=7';
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(wd){
+      wData.w = wd;
+      try { localStorage.setItem('st_wx_cache', JSON.stringify(wData)); } catch(e) {}
+      setLastUpdated();
+      // Only re-render if on main tab and page is visible
+      if ((curWTab === 'main' || !curWTab) && document.visibilityState === 'visible') {
+        renderWx(wData);
+      }
+    })
+    .catch(function(){});
 }, 600000);
 
 // Init map and load weather after everything is ready
