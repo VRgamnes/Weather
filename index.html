@@ -825,6 +825,7 @@ window.onerror = function(msg,src,line,col,err){
 // ─── CLOUDFLARE WORKER API ───────────────────────────────
 // All reads and writes go through this worker — no CORS issues
 var WORKER_URL = 'https://stormtrack-api.spuddyboy5.workers.dev';
+var GIST_TOKEN = localStorage.getItem('st_gh_token') || '';
 
 // ─── STATE ────────────────────────────────────────────────
 var PIN = localStorage.getItem('st_pin') || '6211';
