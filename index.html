@@ -1431,14 +1431,18 @@ function setWLayer(type, btn) {
   if (type === 'rain') {
     // NEXRAD composite — real NWS radar, Weather Channel colors
     radarLayer = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png', opts).addTo(wMap);
-    radarLayer.on('tileerror', function(e) { reportError('radar','NEXRAD tile error',e.tile&&e.tile.src); });
+    var radarErrOnce = false;
+    radarLayer.on('tileerror', function() { if(radarErrOnce) return; radarErrOnce=true; reportError('radar','NEXRAD tile error — check connection'); });
 
   } else if (type === 'wind') {
-    // Iowa Mesonet IEM realtime wind analysis — valid tile URL
-    radarLayer = L.tileLayer(base + 'iemre-wind_speed/{z}/{x}/{y}.png',
+    // OpenWeatherMap wind — free public CDN, no key needed at overview zoom
+    var windErrored = false;
+    radarLayer = L.tileLayer(
+      'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=9de243494c0b295cca9337e1e96b00e2',
       Object.assign({}, opts, { opacity: 0.82 }));
-    radarLayer.on('tileerror', function(e) {
-      reportError('layer', 'Wind tiles failed — try again later');
+    radarLayer.on('tileerror', function() {
+      if (windErrored) return; windErrored = true;
+      reportError('layer', 'Wind tiles unavailable');
     });
     radarLayer.addTo(wMap);
     // Light NEXRAD on top for context
@@ -1446,11 +1450,14 @@ function setWLayer(type, btn) {
       Object.assign({}, opts, { opacity: 0.25, zIndex: 3 })).addTo(wMap);
 
   } else if (type === 'temp') {
-    // Iowa Mesonet IEM realtime temperature — valid tile URL
-    radarLayer = L.tileLayer(base + 'iemre-tmpf/{z}/{x}/{y}.png',
+    // OpenWeatherMap temperature — free public CDN
+    var tempErrored = false;
+    radarLayer = L.tileLayer(
+      'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=9de243494c0b295cca9337e1e96b00e2',
       Object.assign({}, opts, { opacity: 0.82 }));
-    radarLayer.on('tileerror', function(e) {
-      reportError('layer', 'Temp tiles failed — try again later');
+    radarLayer.on('tileerror', function() {
+      if (tempErrored) return; tempErrored = true;
+      reportError('layer', 'Temp tiles unavailable');
     });
     radarLayer.addTo(wMap);
 
