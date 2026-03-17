@@ -1775,6 +1775,8 @@ function injectNWSIntoPanel(features) {
     } catch(e) {} // skip malformed NWS alerts
   });
   renderA();
+  // Re-render NWS zones on map to make sure they're visible
+  try { if(wMap && nwsData) renderNWSOnMap(wMap, nwsData); } catch(e) {}
   // Red screen for NWS emergency/warning in your area
   if (nwsPanelAlerts.some(function(a){ return (a.severity==='emergency'||a.severity==='warning') && a.redAlert; })) {
     document.body.classList.add('red');
@@ -3392,6 +3394,10 @@ function renderA() {
   }).join('');
 }
 
+function openNWSModByIdx(el) {
+  var id = decodeURIComponent(el.dataset.nwsidx || '');
+  openNWSMod(id);
+}
 function openNWSMod(id) {
   var a = (nwsPanelAlerts||[]).find(function(x){ return x.id===id; });
   if (!a) return;
