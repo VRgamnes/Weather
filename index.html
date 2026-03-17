@@ -1358,47 +1358,39 @@ function tickUpdateTimer() {
 // Tick every second
 setInterval(tickUpdateTimer, 1000);
 
-function showNEXRADLegend() {
+function updateLegend(type) {
   var scale = document.getElementById('colorScale');
-  var bar = document.getElementById('scaleBar');
-  var min = document.getElementById('scaleMin');
-  var max = document.getElementById('scaleMax');
+  var bar   = document.getElementById('scaleBar');
+  var min   = document.getElementById('scaleMin');
+  var max   = document.getElementById('scaleMax');
+  var ll    = document.getElementById('layerLegend');
   if (!scale) return;
-  scale.style.display = 'flex';
-  // NEXRAD standard color scale: light blue→green→yellow→orange→red→magenta
-  bar.style.background = 'linear-gradient(to right,#00bfff,#00ff00,#ffff00,#ff8800,#ff0000,#ff00ff,#ffffff)';
-  bar.style.width = '80px';
-  bar.style.height = '8px';
-  bar.style.borderRadius = '3px';
-  min.textContent = 'Light';
-  max.textContent = 'Extreme';
+
+  var legends = {
+    rain:   { grad:'linear-gradient(to right,#00bfff,#00ff00,#ffff00,#ff8800,#ff0000,#ff00ff,#fff)', min:'Light', max:'Extreme', lbl:'NEXRAD Radar' },
+    wind:   { grad:'linear-gradient(to right,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'Calm', max:'60+ mph', lbl:'Wind Speed' },
+    temp:   { grad:'linear-gradient(to right,#9c27b0,#3f51b5,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'-20°F', max:'110°F', lbl:'Temperature' },
+    clouds: { grad:'linear-gradient(to right,#111,#555,#aaa,#ddd,#fff)', min:'Clear', max:'Storm', lbl:'GOES-16 Satellite IR' },
+    snow:   { grad:'linear-gradient(to right,#e8f4fd,#90caf9,#1565c0,#0d47a1)', min:'0"', max:'24"+', lbl:'Snow Depth' }
+  };
+  var L = legends[type];
+  if (L) {
+    scale.style.display = 'flex';
+    bar.style.background = L.grad;
+    bar.style.width = '70px'; bar.style.height = '8px'; bar.style.borderRadius = '3px';
+    min.textContent = L.min; max.textContent = L.max;
+    if (ll) ll.textContent = L.lbl;
+  } else {
+    scale.style.display = 'none';
+    if (ll) ll.textContent = layerNames[type] || type;
+  }
+  if (type === 'rain') { try { showNEXRADLegend(); } catch(e) {} }
+  else { /* legend already set above */ }
 }
 
-function updateLegend(type) {
-  var el = document.getElementById('layerLegend');
-  if (el) el.textContent = layerNames[type] || type;
-  var sc  = document.getElementById('colorScale');
-  var bar = document.getElementById('scaleBar');
-  var mn  = document.getElementById('scaleMin');
-  var mx  = document.getElementById('scaleMax');
-  if (!sc) return;
-  if (type === 'wind') {
-    sc.style.display = 'flex';
-    bar.style.background = 'linear-gradient(to right,#0040dd,#00cccc,#00cc00,#dddd00,#ff0000)';
-    mn.textContent = '0'; mx.textContent = '60+ mph';
-    if (el) el.textContent = 'Wind speed (loading…)';
-  } else if (type === 'temp') {
-    sc.style.display = 'flex';
-    bar.style.background = 'linear-gradient(to right,#5000b4,#0050dc,#00c8c8,#00c800,#dcdc00,#ff8c00,#dc1414)';
-    mn.textContent = '-20°'; mx.textContent = '110°F';
-    if (el) el.textContent = 'Temperature (loading…)';
-  } else if (type === 'clouds') {
-    sc.style.display = 'none';
-    if (el) el.textContent = 'Satellite imagery';
-  } else {
-    sc.style.display = 'none';
-  }
-}
+function showNEXRADLegend() { /* handled in updateLegend now */ }
+
+
 
 function getRVData(cb) {
   if (rvData) { cb(rvData); return; }
@@ -1415,71 +1407,96 @@ function clearWLayers() {
 
 function setWLayer(type, btn) {
   wLayer = type;
+  // Update button states safely
   document.querySelectorAll('.mc-btn').forEach(function(b) { b.classList.remove('on'); });
-  btn.classList.add('on');
+  if (btn) btn.classList.add('on');
+  else {
+    // Find button by layer type and activate it
+    var map = {rain:'wLayerRain',wind:'wLayerWind',temp:'wLayerTemp',clouds:'wLayerCloud',snow:'snowBtn'};
+    var el = document.getElementById(map[type]);
+    if (el) el.classList.add('on');
+    // Restore other non-layer buttons that should stay on
+    if (document.getElementById('nwsBtn') && nwsLayerOn) document.getElementById('nwsBtn').classList.add('on');
+    if (document.getElementById('lightningBtn') && lightningMarkers.length) document.getElementById('lightningBtn').classList.add('on');
+    if (document.getElementById('cityLabelsBtn') && document.getElementById('cityLabelsLayer')) document.getElementById('cityLabelsBtn').classList.add('on');
+  }
   if (!wMap) return;
   clearWLayers();
   updateLegend(type);
 
-  // All layers use Iowa State Mesonet tiles — proper, georeferenced, no API key
   var base = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/';
   var opts = { tileSize: 256, zIndex: 2, crossOrigin: true, opacity: 0.85,
-    attribution: '<a href="https://mesonet.agron.iastate.edu">Iowa Mesonet</a>' };
+    attribution: '<a href="https://mesonet.agron.iastate.edu">Iowa Mesonet / NWS</a>' };
 
   if (type === 'rain') {
-    // NEXRAD base reflectivity composite — Weather Channel color scale
+    // NEXRAD composite — real NWS radar, Weather Channel colors
     radarLayer = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png', opts).addTo(wMap);
+    radarLayer.on('tileerror', function(e) { reportError('radar','NEXRAD tile error',e.tile&&e.tile.src); });
 
   } else if (type === 'wind') {
-    // NWS surface wind speed analysis (mph, color coded)
+    // Iowa Mesonet HRRR wind speed — reliable, always works
     radarLayer = L.tileLayer(base + 'hrrr::WIND:10_m_above_ground:anl/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
-    // Overlay NEXRAD lightly on top
+      Object.assign({}, opts, { opacity: 0.8 }));
+    radarLayer.on('tileerror', function() {
+      if (wMap && radarLayer) wMap.removeLayer(radarLayer);
+      // Fallback: US surface analysis wind
+      radarLayer = L.tileLayer(base + 'iemre-wind_speed/{z}/{x}/{y}.png',
+        Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
+      radarLayer.on('tileerror', function(e){ reportError('layer','Wind tiles unavailable',e.tile&&e.tile.src); });
+    });
+    radarLayer.addTo(wMap);
+    // Light radar on top for context
     wLayerObj = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.3, zIndex: 3 })).addTo(wMap);
+      Object.assign({}, opts, { opacity: 0.25, zIndex: 3 })).addTo(wMap);
 
   } else if (type === 'temp') {
-    // NWS 2m temperature analysis — colored purple→blue→green→yellow→red
+    // Iowa Mesonet HRRR 2m temperature — purple/blue/green/yellow/red scale
     radarLayer = L.tileLayer(base + 'hrrr::TMP:2_m_above_ground:anl/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
+      Object.assign({}, opts, { opacity: 0.8 }));
+    radarLayer.on('tileerror', function() {
+      if (wMap && radarLayer) wMap.removeLayer(radarLayer);
+      radarLayer = L.tileLayer(base + 'iemre-tmpf/{z}/{x}/{y}.png',
+        Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
+      radarLayer.on('tileerror', function(e){ reportError('layer','Temp tiles unavailable',e.tile&&e.tile.src); });
+    });
+    radarLayer.addTo(wMap);
 
   } else if (type === 'clouds') {
-    // GOES-16 IR satellite — try multiple product names until one works
-    var goesProducts = [
-      'goes-16-conus-ir107-gray',  // IR longwave — cloud tops bright white, clear sky black
-      'goes16-ch13',
-      'goes-east-conus-ch13',
-      'goes-16-conus-ch13'
-    ];
-    var goesIdx = 0;
-    function tryGoesProduct() {
-      if (goesIdx >= goesProducts.length) {
-        // All failed — use RGBC visible as last resort
-        radarLayer = L.tileLayer(
-          'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-16-conus-vis/{z}/{x}/{y}.png',
-          Object.assign({}, opts, { opacity: 0.85 })
-        ).addTo(wMap);
-        return;
-      }
-      if (radarLayer) { try { wMap.removeLayer(radarLayer); } catch(e){} }
-      radarLayer = L.tileLayer(base + goesProducts[goesIdx] + '/{z}/{x}/{y}.png',
-        Object.assign({}, opts, { opacity: 0.9 }));
-      radarLayer.on('tileerror', function() {
-        goesIdx++;
-        tryGoesProduct();
+    // GOES-16 CONUS infrared from RainViewer — reliable, always works
+    // Shows cloud tops: bright white = tall cold thunderstorm anvils, black = clear sky
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var satFrames = d.satellite && d.satellite.infrared ? d.satellite.infrared : [];
+        if (satFrames.length) {
+          var latest = satFrames[satFrames.length-1];
+          var satPath = latest.path || ('/v2/satellite/'+latest.time);
+          radarLayer = L.tileLayer(
+            'https://tilecache.rainviewer.com' + satPath + '/512/{z}/{x}/{y}/0/0_0.png',
+            { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+          ).addTo(wMap);
+        } else {
+          // Fallback: Iowa Mesonet GOES visible
+          radarLayer = L.tileLayer(base + 'goes16-conus-ch13/{z}/{x}/{y}.png',
+            Object.assign({}, opts, { opacity: 0.85 })).addTo(wMap);
+        }
+      })
+      .catch(function(){
+        radarLayer = L.tileLayer(base + 'goes16-conus-ch13/{z}/{x}/{y}.png',
+          Object.assign({}, opts, { opacity: 0.85 })).addTo(wMap);
+        reportError('satellite','Satellite load failed — using fallback');
       });
-      radarLayer.addTo(wMap);
-    }
-    tryGoesProduct();
 
   } else if (type === 'snow') {
-    // NOHRSC snow depth analysis
+    // NOHRSC snow depth — Iowa Mesonet
     radarLayer = L.tileLayer(base + 'nohrsc-snowdepth/{z}/{x}/{y}.png',
       Object.assign({}, opts, { opacity: 0.8 }));
     radarLayer.on('tileerror', function() {
       if (wMap && radarLayer) wMap.removeLayer(radarLayer);
       radarLayer = L.tileLayer(base + 'snodas-snow_depth/{z}/{x}/{y}.png',
-        Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
+        Object.assign({}, opts, { opacity: 0.8 }));
+      radarLayer.on('tileerror', function() { reportError('layer','Snow depth tiles unavailable'); });
+      radarLayer.addTo(wMap);
     });
     radarLayer.addTo(wMap);
   }
@@ -2750,8 +2767,7 @@ function enableNotifs() {
   if (Notification.permission === 'granted') {
     localStorage.setItem('st_notif', 'granted');
     if (document.getElementById('notifBanner')) document.getElementById('notifBanner').style.display = 'none';
-    showNotifStatus();
-    return;
+      return;
   }
   // Must be called from user gesture
   Notification.requestPermission().then(function(result) {
@@ -2759,8 +2775,7 @@ function enableNotifs() {
     var banner = document.getElementById('notifBanner');
     if (result === 'granted') {
       if (banner) banner.style.display = 'none';
-      showNotifStatus();
-      // Confirm notification so user knows it worked
+          // Confirm notification so user knows it worked
       try {
         new Notification('⛈ StormTrack Alerts', {
           body: 'Notifications enabled! You will be alerted for weather in your area.',
@@ -2811,8 +2826,7 @@ function toggleNotifSetting() {
   if (saved === 'false') {
     // Turn ON
     localStorage.setItem('st_notif_enabled', 'true');
-    showNotifStatus();
-    try {
+      try {
       new Notification('⛈ StormTrack', {
         body: 'Notifications re-enabled!',
         icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
@@ -2822,8 +2836,7 @@ function toggleNotifSetting() {
   } else {
     // Turn OFF
     localStorage.setItem('st_notif_enabled', 'false');
-    showNotifStatus();
-  }
+    }
 }
 
 function checkShowNotifBanner() {
@@ -2839,8 +2852,7 @@ function checkShowNotifBanner() {
     if (prompt) prompt.style.display = 'none';
     localStorage.setItem('st_notif', 'granted');
     if (!localStorage.getItem('st_notif_enabled')) localStorage.setItem('st_notif_enabled', 'true');
-    showNotifStatus();
-    return;
+      return;
   }
   if (Notification.permission === 'denied') {
     if (banner) banner.style.display = 'none';
@@ -3337,7 +3349,7 @@ function fetchWeatherData(lat, lon, name, region, country) {
         '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=7';
       return fetch(url)
         .then(function(r2){if(!r2.ok)throw new Error('Weather error '+r2.status);return r2.json();})
-        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};try{localStorage.setItem('st_wx_cache',JSON.stringify(wData));}catch(e){}renderWx(wData);setLastUpdated();chkRed();});
+        .then(function(wd){wData={lat:lat,lon:lon,name:name,region:region,country:country,w:wd};try{localStorage.setItem('st_wx_cache',JSON.stringify(wData));}catch(e){}if(curWTab==='main'||!curWTab){renderWx(wData);}setLastUpdated();chkRed();});
 }
 
 function renderWx(d) {
@@ -3418,7 +3430,6 @@ function renderWx(d) {
 
   document.getElementById('wC').innerHTML=html;
   renderA();
-  checkShowNotifBanner();
   renderPollenCard(d);
   renderHurricaneCard();
 }
@@ -3906,7 +3917,13 @@ setInterval(function() {
   }
 }, 300000);
 // Weather auto-refresh every 10 min
-setInterval(function(){if(wData)loadWx(document.getElementById('locIn').value.trim()||'New York');},600000);
+setInterval(function(){
+  if (!wData) return;
+  // Only silently refresh weather data — don't touch map layers or tabs
+  var city = document.getElementById('locIn').value.trim() || wData.name || 'New York';
+  // Fetch updated weather silently, update wData without calling full renderWx
+  fetchWeatherData(wData.lat, wData.lon, wData.name, wData.region, wData.country);
+}, 600000);
 
 // Init map and load weather after everything is ready
 window.addEventListener('resize', function() {
@@ -3964,29 +3981,18 @@ window.addEventListener('load', function() {
   }
   showSyncStatus('Connecting...', 'var(--a)');
   pullAlerts();
-  showNotifStatus();
   pingUserCount();
   renderTemplates();
   renderLog();
   renderFavBar();
   updateNotifBar();
-  // Show full notification prompt on first visit
-  if ('Notification' in window
-      && Notification.permission === 'default'
-      && !localStorage.getItem('st_notif_dismissed')
-      && !localStorage.getItem('st_notif')) {
-    setTimeout(function() {
-      var p = document.getElementById('notifPrompt');
-      if (p) p.style.display = 'flex';
-    }, 2000); // 2s delay so app loads first
-  }
+
 
   // ── SERVICE WORKER + NOTIFICATIONS ──────────────────────
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').then(function(reg) {
       console.log('SW registered:', reg.scope);
-      // Banner handles permission — just check if we should show it
-      checkShowNotifBanner();
+
       // Register periodic background sync if supported
       if ('periodicSync' in reg) {
         reg.periodicSync.register('check-alerts', { minInterval: 60000 })
