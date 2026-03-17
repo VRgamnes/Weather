@@ -961,13 +961,15 @@ function renderErrorLog() {
 function pushAlerts() {
   isSyncing = true;
   showSyncStatus('Saving...', 'var(--a)');
+  // Strip NWS-generated alerts before saving — they come from NWS API not admin
+  var toSave = alerts.filter(function(a){ return !a.nwsGenerated; });
   fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ alerts: alerts, settings: appSettings })
+    body: JSON.stringify({ alerts: toSave, settings: appSettings })
   })
   .then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,100)); });
     return r.json();
   })
   .then(function() {
@@ -1498,6 +1500,13 @@ function clearNWSPolygons(map) {
   nwsPolygons = [];
 }
 
+// Keep NWS layer alive even when map redraws
+function restoreNWSIfNeeded(map) {
+  if (nwsLayerOn && nwsData && nwsData.length && nwsPolygons.length === 0) {
+    renderNWSOnMap(map, nwsData);
+  }
+}
+
 function renderNWSOnMap(map, features) {
   clearNWSPolygons(map);
   if (!nwsLayerOn || !features) return;
@@ -1590,39 +1599,46 @@ function pointInGeoJSONPoly(lat, lon, feature) {
 }
 
 function loadNWSAlerts(map) {
-  // Paginate through ALL active NWS alerts — API returns max 500 per page
   nwsData = [];
-  // Request alerts WITH polygon geometry — alerts endpoint returns geometry when available
-  var base = 'https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land&limit=500';
+  fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land&limit=500', {
+    headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' }
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
+  .then(function(d) {
+    nwsData = d.features || [];
+    // Render polygons on map
+    if (nwsLayerOn) renderNWSOnMap(map, nwsData);
+    // Update badge
+    var badge = document.getElementById('nwsBadge');
+    if (badge) {
+      badge.textContent = nwsData.length || '';
+      badge.style.display = nwsData.length ? 'inline-block' : 'none';
+    }
+    // Show matching alerts in active alerts banner
+    injectNWSIntoPanel(nwsData);
+    // Try to get more pages if available
+    if (d.pagination && d.pagination.next) {
+      loadNWSPage(map, d.pagination.next);
+    }
+  })
+  .catch(function(e) { reportError('nws', 'NWS failed: ' + (e.message||'Unknown')); });
+}
 
-  function fetchPage(url) {
-    return fetch(url, {
-      headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var features = d.features || [];
-      nwsData = nwsData.concat(features);
-
-      // Check if there's another page
-      var nextUrl = d.pagination && d.pagination.next ? d.pagination.next : null;
-      if (nextUrl && features.length === 500) {
-        // More pages — keep fetching
-        return fetchPage(nextUrl);
-      }
-      // All pages loaded — render
-      renderNWSOnMap(map, nwsData);
-      var badge = document.getElementById('nwsBadge');
-      if (badge) {
-        badge.textContent = nwsData.length ? nwsData.length : '';
-        badge.style.display = nwsData.length ? 'inline-block' : 'none';
-      }
-      injectNWSIntoPanel(nwsData);
-    });
-  }
-
-  fetchPage(base)
-    .catch(function(e) { reportError('nws', 'NWS alerts failed to load', e.message||'Unknown'); });
+function loadNWSPage(map, url) {
+  fetch(url, { headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' } })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var more = d.features || [];
+    nwsData = nwsData.concat(more);
+    if (nwsLayerOn) renderNWSOnMap(map, nwsData);
+    var badge = document.getElementById('nwsBadge');
+    if (badge) { badge.textContent = nwsData.length; badge.style.display = 'inline-block'; }
+    injectNWSIntoPanel(nwsData);
+    if (d.pagination && d.pagination.next && more.length > 0) loadNWSPage(map, d.pagination.next);
+  }).catch(function(){});
 }
 
 function injectNWSBannerAlerts() {
@@ -1819,7 +1835,7 @@ function toggleNWSLayer(btn) {
 }
 
 function addAlertZonesToMap(map) {
-  // Clear user alert polygons
+  // Clear only user alert polygons — NWS polygons managed separately
   alertPolygons.forEach(function(p) { try { map.removeLayer(p); } catch(e) {} });
   alertPolygons = [];
   // Draw user-created alerts on top
@@ -1984,6 +2000,7 @@ function setZT(t) {
 }
 function renderZoneList() { /* multi-zone list UI placeholder */ }
 
+function clearZoneAll() { clrZ(); }  // alias
 function clrZ() {
   zoneLatLngs = []; drawLatLngs = [];
   if (drawPoly) { aMap.removeLayer(drawPoly); drawPoly = null; }
@@ -2111,28 +2128,7 @@ function saveSettings() {
     body: JSON.stringify(appSettings)
   }).catch(function(){});
   // Also piggyback settings into the main data push
-  pushData();
-}
-
-function pushData() {
-  fetch(WORKER_URL, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ alerts: alerts, settings: appSettings })
-  }).then(function(r){
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return r.json();
-  }).then(function(){
-    isSyncing=false;
-    showSyncStatus('Synced ✓','var(--ok)');
-    setTimeout(function(){showSyncStatus('Live','var(--ok)');},2000);
-    setTimeout(pullAlerts,500);
-  }).catch(function(e){
-    isSyncing=false;
-    var pmsg=e.message||'Unknown';
-    showSyncStatus('Save failed: '+pmsg,'var(--dng)');
-    alert('Save failed: '+pmsg);
-  });
+  pushAlerts();
 }
 
 // Ticker
