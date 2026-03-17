@@ -1242,7 +1242,7 @@ function updateLegend(type) {
   if (!scale) return;
 
   var legends = {
-    rain:   { grad:'linear-gradient(to right,#00bfff,#00ff00,#ffff00,#ff8800,#ff0000,#ff00ff,#fff)', min:'Light', max:'Extreme', lbl:'NEXRAD Radar' },
+    rain:   { grad:'linear-gradient(to right,#04e9e7,#019ff4,#0300f4,#02fd02,#01c501,#008e00,#fdf802,#e5bc00,#fd9500,#fd0000,#d40000,#bc0000,#f800fd,#9854c6)', min:'ND', max:'Extreme', lbl:'Radar (TWC colors)' },
     wind:   { grad:'linear-gradient(to right,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'Calm', max:'60+ mph', lbl:'Wind Speed' },
     temp:   { grad:'linear-gradient(to right,#9c27b0,#3f51b5,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'-20°F', max:'110°F', lbl:'Temperature' },
     clouds: { grad:'linear-gradient(to right,#111,#555,#aaa,#ddd,#fff)', min:'Clear', max:'Storm', lbl:'GOES-16 Satellite IR' },
@@ -1304,10 +1304,25 @@ function setWLayer(type, btn) {
     attribution: '<a href="https://mesonet.agron.iastate.edu">Iowa Mesonet / NWS</a>' };
 
   if (type === 'rain') {
-    // NEXRAD composite — real NWS radar, Weather Channel colors
-    radarLayer = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png', opts).addTo(wMap);
-    var radarErrOnce = false;
-    radarLayer.on('tileerror', function() { if(radarErrOnce) return; radarErrOnce=true; reportError('radar','NEXRAD tile error — check connection'); });
+    // RainViewer TWC color palette (color=3) — matches The Weather Channel exactly
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var frames = d.radar && d.radar.past ? d.radar.past : [];
+        var ts = frames.length ? frames[frames.length-1].time : radarTimestamp;
+        radarTimestamp = ts;
+        if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer=null; }
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+          { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+        ).addTo(wMap);
+      })
+      .catch(function(){
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+          { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+        ).addTo(wMap);
+      });
 
   } else if (type === 'wind') {
     // OpenWeatherMap wind — free public CDN, no key needed at overview zoom
@@ -1321,8 +1336,8 @@ function setWLayer(type, btn) {
     });
     radarLayer.addTo(wMap);
     // Light NEXRAD on top for context
-    wLayerObj = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.25, zIndex: 3 })).addTo(wMap);
+    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+      { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
 
   } else if (type === 'temp') {
     // OpenWeatherMap temperature — free public CDN
@@ -1374,8 +1389,8 @@ function setWLayer(type, btn) {
     });
     radarLayer.addTo(wMap);
     // Light radar on top
-    wLayerObj = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.25, zIndex: 3 })).addTo(wMap);
+    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+      { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
   }
 }
 
@@ -1546,24 +1561,38 @@ function pointInGeoJSONPoly(lat, lon, feature) {
 }
 
 function loadNWSAlerts(map) {
-  // Fetch ALL active NWS alerts for entire US — no location filter
-  fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land', {
-    headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0 (weather alert app)' }
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    nwsData = d.features || [];
-    renderNWSOnMap(map, nwsData);
-    // Update map badge
-    var badge = document.getElementById('nwsBadge');
-    if (badge) {
-      badge.textContent = nwsData.length ? nwsData.length : '';
-      badge.style.display = nwsData.length ? 'inline-block' : 'none';
-    }
-    // Inject NWS alerts that cover user location into active alerts banner
-    injectNWSBannerAlerts();
-  })
-  .catch(function(e) { reportError('nws', 'NWS alerts failed to load', e.message||'Unknown'); });
+  // Paginate through ALL active NWS alerts — API returns max 500 per page
+  nwsData = [];
+  var base = 'https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land&limit=500';
+
+  function fetchPage(url) {
+    return fetch(url, {
+      headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var features = d.features || [];
+      nwsData = nwsData.concat(features);
+
+      // Check if there's another page
+      var nextUrl = d.pagination && d.pagination.next ? d.pagination.next : null;
+      if (nextUrl && features.length === 500) {
+        // More pages — keep fetching
+        return fetchPage(nextUrl);
+      }
+      // All pages loaded — render
+      renderNWSOnMap(map, nwsData);
+      var badge = document.getElementById('nwsBadge');
+      if (badge) {
+        badge.textContent = nwsData.length ? nwsData.length : '';
+        badge.style.display = nwsData.length ? 'inline-block' : 'none';
+      }
+      injectNWSBannerAlerts();
+    });
+  }
+
+  fetchPage(base)
+    .catch(function(e) { reportError('nws', 'NWS alerts failed to load', e.message||'Unknown'); });
 }
 
 function injectNWSBannerAlerts() {
@@ -3786,12 +3815,21 @@ function buildWidgetRow(cur, daily) {
 setInterval(pullAlerts, 10000);
 // Refresh NEXRAD radar every 5 minutes (matches NWS update cycle)
 setInterval(function() {
-  if (wLayer === 'rain' && wMap && radarLayer) {
-    wMap.removeLayer(radarLayer);
-    radarLayer = L.tileLayer(
-      'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?_=' + Date.now(),
-      { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
-    ).addTo(wMap);
+  if (wLayer === 'rain' && wMap) {
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var frames = d.radar && d.radar.past ? d.radar.past : [];
+        if (!frames.length) return;
+        var ts = frames[frames.length-1].time;
+        if (ts === radarTimestamp) return; // no new data
+        radarTimestamp = ts;
+        if (radarLayer) wMap.removeLayer(radarLayer);
+        radarLayer = L.tileLayer(
+          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+          { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+        ).addTo(wMap);
+      }).catch(function(){});
   }
 }, 300000);
 // Weather auto-refresh every 10 min
