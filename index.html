@@ -563,7 +563,27 @@ body.light-mode .ab{color:#1a2332}
         <div id="scaleBar" style="width:60px;height:8px;border-radius:4px"></div>
         <span id="scaleMax"></span>
       </div>
-      <div class="leg-item" id="layerLegend" style="font-size:10px;color:var(--mut)">Live radar</div>
+      <div class="leg-item" id="layerLegend" style="font-size:10px;color:var(--mut)">Live Radar</div>
+      <div id="radarLegendBar" style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--mut);margin-top:2px">
+        <span>None</span>
+        <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:90px">
+          <div style="flex:1;background:#646464"></div>
+          <div style="flex:1;background:#04e9e7"></div>
+          <div style="flex:1;background:#019ff4"></div>
+          <div style="flex:1;background:#0300f4"></div>
+          <div style="flex:1;background:#02fd02"></div>
+          <div style="flex:1;background:#01c501"></div>
+          <div style="flex:1;background:#008e00"></div>
+          <div style="flex:1;background:#fdf802"></div>
+          <div style="flex:1;background:#e5bc00"></div>
+          <div style="flex:1;background:#fd9500"></div>
+          <div style="flex:1;background:#fd0000"></div>
+          <div style="flex:1;background:#d40000"></div>
+          <div style="flex:1;background:#f800fd"></div>
+          <div style="flex:1;background:#9854c6"></div>
+        </div>
+        <span>Extreme</span>
+      </div>
       <div class="leg-item" id="updateTimer" style="font-size:10px;color:var(--mut);display:flex;align-items:center;gap:4px">
         <div id="updateDot" style="width:7px;height:7px;border-radius:50%;background:#43a047;flex-shrink:0"></div>
         <span id="updateText">Updated just now</span>
@@ -1135,12 +1155,12 @@ function initWeatherMap() {
     attribution: '', subdomains: 'abcd', maxZoom: 19, zIndex: 10, pane: 'overlayPane'
   }).addTo(wMap);
 
-  addRadarLayer();
   addAlertZonesToMap(wMap);
-  // City labels layer
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
-    subdomains:'abcd',maxZoom:19,pane:'overlayPane',opacity:0.8,zIndex:5
-  }).addTo(wMap);
+  // Load radar with RainViewer TWC colors immediately
+  addRadarLayer();
+  // Mark rain button as active
+  var rainBtn = document.getElementById('wLayerRain');
+  if (rainBtn) rainBtn.classList.add('on');
 }
 
 function getLayerUrl(type) {
@@ -1155,26 +1175,24 @@ function getLayerUrl(type) {
 }
 
 function addRadarLayer() {
-  if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer = null; }
-  // Fetch latest RainViewer timestamp
+  if (radarLayer) { try { wMap.removeLayer(radarLayer); } catch(e){} radarLayer = null; }
   fetch('https://api.rainviewer.com/public/weather-maps.json')
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var frames = d.radar && d.radar.past;
-      if (frames && frames.length) {
-        radarTimestamp = frames[frames.length - 1].time;
-      }
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var frames = d.radar && d.radar.past ? d.radar.past : [];
+      var ts = frames.length ? frames[frames.length-1].time : Math.floor(Date.now()/1000)-600;
+      radarTimestamp = ts;
       radarLayer = L.tileLayer(
-        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-        { opacity: 0.8, tileSize: 256, zIndex: 2, crossOrigin: true }
-      );
-      radarLayer.addTo(wMap);
+        'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+      ).addTo(wMap);
+      updateLegend('rain');
     })
-    .catch(function() {
-      // Fallback with approximate timestamp
+    .catch(function(){
+      var ts = Math.floor(Date.now()/1000) - 600;
       radarLayer = L.tileLayer(
-        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-        { opacity: 0.8, tileSize: 256, zIndex: 2, crossOrigin: true }
+        'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
       );
       radarLayer.addTo(wMap);
     });
@@ -1242,7 +1260,7 @@ function updateLegend(type) {
   if (!scale) return;
 
   var legends = {
-    rain:   { grad:'linear-gradient(to right,#04e9e7,#019ff4,#0300f4,#02fd02,#01c501,#008e00,#fdf802,#e5bc00,#fd9500,#fd0000,#d40000,#bc0000,#f800fd,#9854c6)', min:'ND', max:'Extreme', lbl:'Radar (TWC colors)' },
+    rain:   { grad:'linear-gradient(to right,#646464,#04e9e7,#019ff4,#0300f4,#02fd02,#01c501,#008e00,#fdf802,#e5bc00,#fd9500,#fd0000,#d40000,#bc0000,#f800fd,#9854c6)', min:'None', max:'Extreme', lbl:'Live Radar' },
     wind:   { grad:'linear-gradient(to right,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'Calm', max:'60+ mph', lbl:'Wind Speed' },
     temp:   { grad:'linear-gradient(to right,#9c27b0,#3f51b5,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'-20°F', max:'110°F', lbl:'Temperature' },
     clouds: { grad:'linear-gradient(to right,#111,#555,#aaa,#ddd,#fff)', min:'Clear', max:'Storm', lbl:'GOES-16 Satellite IR' },
@@ -1255,9 +1273,11 @@ function updateLegend(type) {
     bar.style.width = '70px'; bar.style.height = '8px'; bar.style.borderRadius = '3px';
     min.textContent = L.min; max.textContent = L.max;
     if (ll) ll.textContent = L.lbl;
+    var ls = document.getElementById('layerLegendSimple'); if(ls) ls.style.display='none';
   } else {
     scale.style.display = 'none';
     if (ll) ll.textContent = layerNames[type] || type;
+    var ls2 = document.getElementById('layerLegendSimple'); if(ls2){ls2.style.display='';ls2.textContent=layerNames[type]||type;}
   }
   if (type === 'rain') { try { showNEXRADLegend(); } catch(e) {} }
   else { /* legend already set above */ }
@@ -1313,13 +1333,13 @@ function setWLayer(type, btn) {
         radarTimestamp = ts;
         if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer=null; }
         radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/6/1_1.png',
           { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       })
       .catch(function(){
         radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+          'https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/6/1_1.png',
           { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       });
@@ -1336,7 +1356,7 @@ function setWLayer(type, btn) {
     });
     radarLayer.addTo(wMap);
     // Light NEXRAD on top for context
-    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/6/1_1.png',
       { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
 
   } else if (type === 'temp') {
@@ -1389,7 +1409,7 @@ function setWLayer(type, btn) {
     });
     radarLayer.addTo(wMap);
     // Light radar on top
-    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/6/1_1.png',
       { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
   }
 }
@@ -1476,7 +1496,8 @@ function renderNWSOnMap(map, features) {
   features.forEach(function(f) {
     var p = f.properties;
     var geom = f.geometry;
-    if (!geom || !geom.coordinates) return;
+    // Many NWS alerts use UGC zones (no polygon) — skip those, only draw ones with geometry
+    if (!geom || !geom.coordinates || !geom.coordinates.length) return;
     var event = p.event || 'Alert';
     var severity = p.severity || 'Unknown';
     var color = getNWSSevColor(event, severity);
@@ -1563,6 +1584,7 @@ function pointInGeoJSONPoly(lat, lon, feature) {
 function loadNWSAlerts(map) {
   // Paginate through ALL active NWS alerts — API returns max 500 per page
   nwsData = [];
+  // Request alerts WITH polygon geometry — alerts endpoint returns geometry when available
   var base = 'https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land&limit=500';
 
   function fetchPage(url) {
@@ -3826,7 +3848,7 @@ setInterval(function() {
         radarTimestamp = ts;
         if (radarLayer) wMap.removeLayer(radarLayer);
         radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/6/1_1.png',
           { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       }).catch(function(){});
@@ -3863,10 +3885,20 @@ window.addEventListener('resize', function() {
 window.addEventListener('load', function() {
   document.getElementById('adminMap').style.display = 'none';
   try { initWeatherMap(); } catch(e) { console.error('Map init error:', e); }
-  // Load NWS alert zones on startup
-  setTimeout(function() { try { loadNWSAlerts(wMap); } catch(e) {} }, 2000);
+  // Load NWS alert zones after map is ready and weather has loaded
+  setTimeout(function() {
+    try {
+      if (wMap) {
+        loadNWSAlerts(wMap);
+      } else {
+        setTimeout(function(){ if(wMap) loadNWSAlerts(wMap); }, 3000);
+      }
+    } catch(e) { reportError('nws','NWS init failed',e.message); }
+  }, 3000);
   // Refresh NWS every 5 minutes
-  setInterval(function() { try { if(nwsLayerOn && wMap) loadNWSAlerts(wMap); } catch(e) {} }, 300000);
+  setInterval(function() {
+    try { if(nwsLayerOn && wMap) loadNWSAlerts(wMap); } catch(e) {}
+  }, 300000);
   // Auto-detect GPS location on load — use coordinates directly, no re-geocoding drift
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
