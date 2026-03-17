@@ -134,6 +134,53 @@ input,textarea,select{font-size:16px!important}
 .maint-sched{display:flex;gap:7px;flex-wrap:wrap}
 .maint-sched .inp{flex:1;min-width:100px}
 
+/* Dark/Light mode */
+body.light-mode{--sky:#f0f4f8;--txt:#1a2332;--mut:#5a7a9a;--card:rgba(0,0,0,.06);--ch:rgba(0,0,0,.1);--bdr:rgba(26,35,50,.15);--a:#1565c0;--a2:#1976d2;--warn:#e65100;--dng:#c62828;--ok:#2e7d32}
+body.light-mode .nav{background:rgba(240,244,248,.95)}
+body.light-mode .ab{color:#1a2332}
+
+/* Animated backgrounds */
+@keyframes rain-fall{0%{transform:translateY(-10px) translateX(0);opacity:0}10%{opacity:1}90%{opacity:.7}100%{transform:translateY(110vh) translateX(-20px);opacity:0}}
+@keyframes snow-fall{0%{transform:translateY(-10px) rotate(0deg);opacity:0}10%{opacity:1}100%{transform:translateY(110vh) rotate(360deg);opacity:0}}
+@keyframes float-cloud{0%{transform:translateX(-100px)}100%{transform:translateX(110vw)}}
+.wx-particle{position:fixed;pointer-events:none;z-index:0;top:0}
+.rain-drop{width:2px;border-radius:1px;background:rgba(79,195,247,.6)}
+.snow-flake{font-size:14px;color:rgba(255,255,255,.7)}
+
+/* Widget cards */
+.widget-row{display:flex;gap:8px;overflow-x:auto;padding:0 0 4px;margin-bottom:12px}
+.widget-row::-webkit-scrollbar{height:3px}.widget-row::-webkit-scrollbar-thumb{background:var(--bdr)}
+.widget-card{background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:12px 14px;flex-shrink:0;min-width:100px;text-align:center}
+.widget-big{font-size:26px;font-weight:500;color:var(--a);line-height:1.1}
+.widget-label{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
+.widget-icon{font-size:20px;margin-bottom:4px}
+.widget-bar{height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:6px;overflow:hidden}
+.widget-bar-fill{height:100%;border-radius:2px;transition:width .8s}
+
+/* Moon phase */
+.moon-card{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px;display:flex;align-items:center;gap:14px}
+.moon-icon{font-size:44px;line-height:1}
+.tide-card{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
+.tide-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:13px}
+.tide-row:last-child{border-bottom:none}
+
+/* Comparison */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px}
+.compare-col{background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:11px}
+.compare-city{font-size:12px;font-weight:500;color:var(--a);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compare-temp{font-size:32px;font-weight:500;line-height:1}
+.compare-row{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:4px}
+
+/* Smart alert thresholds */
+.thresh-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.thresh-row .inp{flex:1}
+.thresh-badge{font-size:11px;padding:3px 8px;border-radius:8px;background:var(--card);border:1px solid var(--bdr);white-space:nowrap}
+
+/* History chart */
+.hist-bar-wrap{display:flex;align-items:flex-end;gap:3px;height:60px;margin:8px 0}
+.hist-bar{flex:1;border-radius:3px 3px 0 0;min-height:4px;transition:height .5s;cursor:pointer;position:relative}
+.hist-label{font-size:9px;color:var(--mut);text-align:center;margin-top:3px}
+
 /* Hurricane tracker */
 .hurr-track{position:relative;background:var(--card);border:1px solid var(--bdr);border-radius:11px;padding:12px;margin-bottom:13px}
 .hurr-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:8px;margin-right:6px;font-weight:500}
@@ -494,6 +541,9 @@ input,textarea,select{font-size:16px!important}
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
     <button class="mc-btn" id="lightningBtn" onclick="toggleLightningBtn(this)">⚡ Lightning</button>
+    <button class="mc-btn" id="quakeBtn" onclick="toggleEarthquakes(this)">🔴 Quakes</button>
+    <button class="mc-btn" id="snowBtn" onclick="setWLayer('snow',this)">❄️ Snow</button>
+    <button class="mc-btn" id="floodBtn" onclick="toggleFloodZones(this)">🌊 Flood</button>
     <button class="mc-btn" id="cityLabelsBtn" onclick="toggleCityLabels(this)">🏙 Cities</button>
     <button class="mc-btn" id="stormPinBtn" onclick="startStormPin()">📍 Track Storm</button>
     <button class="mc-btn" id="mapClickBtn" onclick="enableMapClickBtn(this)">🎯 Tap Location</button>
@@ -667,6 +717,48 @@ input,textarea,select{font-size:16px!important}
     </div>
   </div>
 
+  <!-- SMART ALERTS -->
+  <div class="ac">
+    <div class="ct">Smart Auto-Alerts</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:10px">App automatically sends alerts based on conditions</div>
+    
+    <div class="fg"><label class="fl">🌡 Temperature Threshold</label>
+      <div class="thresh-row">
+        <select class="inp" id="threshTempType" style="flex:0 0 auto;width:110px">
+          <option value="below">Below</option>
+          <option value="above">Above</option>
+        </select>
+        <input class="inp" id="threshTemp" type="number" placeholder="32" style="width:70px"/>
+        <span class="thresh-badge">°F</span>
+        <div class="tg" id="threshTempTg" onclick="togThresh('temp')"><div class="tgk"></div></div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">🌧 Rain Starting Soon</label>
+      <div class="thresh-row">
+        <span style="font-size:12px;color:var(--mut);flex:1">Alert 30 min before rain starts</span>
+        <div class="tg" id="threshRainTg" onclick="togThresh('rain')"><div class="tgk"></div></div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">⚠️ NWS Severe Weather Auto-Alert</label>
+      <div class="thresh-row">
+        <span style="font-size:12px;color:var(--mut);flex:1">Auto-send when NWS issues warnings</span>
+        <div class="tg" id="threshNwsTg" onclick="togThresh('nws')"><div class="tgk"></div></div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">📅 Daily Weather Digest</label>
+      <div class="thresh-row">
+        <input class="inp" id="digestTime" type="time" value="07:00" style="width:110px"/>
+        <div class="tg" id="threshDigestTg" onclick="togThresh('digest')"><div class="tgk"></div></div>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:4px">Sends daily summary notification at set time</div>
+    </div>
+    <button class="sb" onclick="saveThresholds()">💾 Save Smart Alerts</button>
+    <div class="pcf" id="threshFb"></div>
+  </div>
+
   <!-- ALERT TEMPLATES -->
   <div class="ac">
     <div class="ct">Alert Templates</div>
@@ -699,6 +791,48 @@ input,textarea,select{font-size:16px!important}
   <div class="ac">
     <div class="ct">Activity Log</div>
     <div id="actLog"><div class="he">No activity yet</div></div>
+  </div>
+
+  <!-- SMART ALERTS -->
+  <div class="ac">
+    <div class="ct">Smart Auto-Alerts</div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:10px">App automatically sends alerts based on conditions</div>
+    
+    <div class="fg"><label class="fl">🌡 Temperature Threshold</label>
+      <div class="thresh-row">
+        <select class="inp" id="threshTempType" style="flex:0 0 auto;width:110px">
+          <option value="below">Below</option>
+          <option value="above">Above</option>
+        </select>
+        <input class="inp" id="threshTemp" type="number" placeholder="32" style="width:70px"/>
+        <span class="thresh-badge">°F</span>
+        <div class="tg" id="threshTempTg" onclick="togThresh('temp')"><div class="tgk"></div></div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">🌧 Rain Starting Soon</label>
+      <div class="thresh-row">
+        <span style="font-size:12px;color:var(--mut);flex:1">Alert 30 min before rain starts</span>
+        <div class="tg" id="threshRainTg" onclick="togThresh('rain')"><div class="tgk"></div></div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">⚠️ NWS Severe Weather Auto-Alert</label>
+      <div class="thresh-row">
+        <span style="font-size:12px;color:var(--mut);flex:1">Auto-send when NWS issues warnings</span>
+        <div class="tg" id="threshNwsTg" onclick="togThresh('nws')"><div class="tgk"></div></div>
+      </div>
+    </div>
+
+    <div class="fg"><label class="fl">📅 Daily Weather Digest</label>
+      <div class="thresh-row">
+        <input class="inp" id="digestTime" type="time" value="07:00" style="width:110px"/>
+        <div class="tg" id="threshDigestTg" onclick="togThresh('digest')"><div class="tgk"></div></div>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:4px">Sends daily summary notification at set time</div>
+    </div>
+    <button class="sb" onclick="saveThresholds()">💾 Save Smart Alerts</button>
+    <div class="pcf" id="threshFb"></div>
   </div>
 
   <!-- ALERT TEMPLATES -->
@@ -1790,15 +1924,6 @@ function clearAllAlerts() {
 // ── FAVORITES ────────────────────────────────────────────
 var favorites = JSON.parse(localStorage.getItem('st_favs') || '["New York"]');
 function saveFavs(){ try{localStorage.setItem('st_favs',JSON.stringify(favorites));}catch(e){} }
-function showWTab(tab, btn) {
-  document.querySelectorAll('.wtab').forEach(function(b){b.classList.remove('on');});
-  if (btn) btn.classList.add('on');
-  if (!wData) return;
-  if (tab === 'main') { renderWx(wData); }
-  else if (tab === 'feels') { renderFeelsLikeTab(); }
-  else if (tab === 'air') { renderAirPollenTab(); }
-  else if (tab === 'hurricane') { renderHurricaneCard(); }
-}
 
 function renderFeelsLikeTab() {
   var cur = wData.w.current, daily = wData.w.daily;
@@ -3007,8 +3132,430 @@ function pinHurricane(lat, lon, name) {
   setTimeout(function(){if(wMap)wMap.removeLayer(m);},30000);
 }
 
+// ── DARK / LIGHT MODE ────────────────────────────────────
+var isLight = localStorage.getItem('st_theme') === 'light';
+function toggleDarkLight() {
+  isLight = !isLight;
+  document.body.classList.toggle('light-mode', isLight);
+  document.getElementById('themeBtn').textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('st_theme', isLight ? 'light' : 'dark');
+}
+if (isLight) { document.body.classList.add('light-mode'); }
+
+// ── ANIMATED WEATHER BACKGROUNDS ─────────────────────────
+var wxParticles = [], wxAnimFrame = null;
+function startWeatherAnim(code, isDay) {
+  stopWeatherAnim();
+  var isRain = (code >= 51 && code <= 82);
+  var isSnow = (code >= 71 && code <= 77) || code === 85 || code === 86;
+  var isStorm = code >= 95;
+  if (!isRain && !isSnow && !isStorm) return;
+  var count = isStorm ? 60 : isRain ? 40 : 20;
+  for (var i = 0; i < count; i++) {
+    setTimeout(function() {
+      var el = document.createElement('div');
+      el.className = 'wx-particle ' + (isSnow ? 'snow-flake' : 'rain-drop');
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.top = '-20px';
+      if (isSnow) { el.textContent = ['❄','❅','❆'][Math.floor(Math.random()*3)]; }
+      else { el.style.height = (Math.random() * 15 + 8) + 'px'; el.style.opacity = Math.random() * 0.5 + 0.3; }
+      var dur = (Math.random() * 2 + 1.5);
+      el.style.animation = (isSnow ? 'snow-fall' : 'rain-fall') + ' ' + dur + 's linear forwards';
+      document.body.appendChild(el);
+      wxParticles.push(el);
+      setTimeout(function() {
+        if (el.parentNode) el.parentNode.removeChild(el);
+        wxParticles = wxParticles.filter(function(p){ return p !== el; });
+      }, dur * 1000 + 100);
+    }, Math.random() * 3000);
+  }
+  // Loop
+  wxAnimFrame = setTimeout(function() { startWeatherAnim(code, isDay); }, 4000);
+}
+function stopWeatherAnim() {
+  if (wxAnimFrame) { clearTimeout(wxAnimFrame); wxAnimFrame = null; }
+  wxParticles.forEach(function(el){ if(el.parentNode) el.parentNode.removeChild(el); });
+  wxParticles = [];
+}
+
+// ── EARTHQUAKE OVERLAY ────────────────────────────────────
+var quakeMarkers = [], quakeLayerOn = false;
+function toggleEarthquakes(btn) {
+  quakeLayerOn = !quakeLayerOn;
+  if (btn) btn.classList.toggle('on', quakeLayerOn);
+  if (!quakeLayerOn) {
+    quakeMarkers.forEach(function(m){ wMap.removeLayer(m); }); quakeMarkers = []; return;
+  }
+  fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      (d.features || []).forEach(function(f) {
+        var c = f.geometry.coordinates, mag = f.properties.mag, place = f.properties.place;
+        var size = Math.max(8, mag * 6);
+        var col = mag < 3 ? '#43a047' : mag < 5 ? '#fb8c00' : mag < 7 ? '#ef5350' : '#b71c1c';
+        var icon = L.divIcon({
+          html: '<div style="width:'+size+'px;height:'+size+'px;background:'+col+';border-radius:50%;border:2px solid #fff;opacity:.85;box-shadow:0 0 8px '+col+'"></div>',
+          className: '', iconSize: [size,size], iconAnchor: [size/2,size/2]
+        });
+        var m = L.marker([c[1],c[0]], {icon:icon}).addTo(wMap)
+          .bindPopup('<div class="lpop-title">🔴 M'+mag.toFixed(1)+' Earthquake</div><div style="font-size:12px;color:var(--mut)">'+place+'</div><div style="font-size:11px;color:var(--mut);margin-top:4px">'+new Date(f.properties.time).toLocaleString()+'</div>');
+        quakeMarkers.push(m);
+      });
+    }).catch(function(){ if(btn) btn.classList.remove('on'); quakeLayerOn=false; });
+}
+
+// ── FLOOD ZONES ───────────────────────────────────────────
+var floodLayer = null, floodOn = false;
+function toggleFloodZones(btn) {
+  floodOn = !floodOn;
+  if (btn) btn.classList.toggle('on', floodOn);
+  if (!floodOn) { if(floodLayer){ wMap.removeLayer(floodLayer); floodLayer=null; } return; }
+  // FEMA NFHL WMS tiles (free, public)
+  floodLayer = L.tileLayer.wms('https://hazards.fema.gov/gis/nfhl/services/public/NFHL/MapServer/WMSServer', {
+    layers: '28', format: 'image/png', transparent: true, opacity: 0.55,
+    attribution: 'FEMA NFHL', version: '1.3.0'
+  }).addTo(wMap);
+  floodLayer.on('tileerror', function(){
+    showSyncStatus('Flood data unavailable for this area', 'var(--warn)');
+  });
+}
+
+// ── SNOW DEPTH LAYER ──────────────────────────────────────
+// Added as a setWLayer option — uses NOHRSC snow analysis tiles
+var snowLayerObj = null;
+var origSetWLayer = setWLayer;
+setWLayer = function(type, btn) {
+  if (type === 'snow') {
+    clearWLayers();
+    document.querySelectorAll('.mc-btn').forEach(function(b){b.classList.remove('on');});
+    if(btn) btn.classList.add('on');
+    // NOHRSC snow depth WMS
+    snowLayerObj = L.tileLayer.wms('https://mapserver.snowobs.com/wms', {
+      layers: 'snow_depth_24h', format: 'image/png', transparent: true, opacity: 0.7,
+      attribution: 'NOHRSC'
+    }).addTo(wMap);
+    snowLayerObj.on('tileerror', function(){
+      // Fallback to Open-Snow-style overlay
+      snowLayerObj = L.tileLayer(
+        'https://tiles.opensnowmap.org/pistes/{z}/{x}/{y}.png',
+        { opacity:0.6, attribution:'OpenSnowMap' }
+      ).addTo(wMap);
+    });
+    wLayer = 'snow';
+    return;
+  }
+  origSetWLayer(type, btn);
+};
+
+// ── SEVERE WEATHER HISTORY ────────────────────────────────
+function fetchWeatherHistory(lat, lon) {
+  // Open-Meteo historical data — last 7 days
+  var end = new Date(), start = new Date();
+  start.setDate(start.getDate() - 7);
+  var fmt = function(d){ return d.toISOString().slice(0,10); };
+  return fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,weather_code'+
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&past_days=7&forecast_days=1')
+    .then(function(r){return r.json();});
+}
+
+// ── COMPARE TAB ───────────────────────────────────────────
+var compareCity = '';
+function showWTab(tab, btn) {
+  document.querySelectorAll('.wtab').forEach(function(b){b.classList.remove('on');});
+  if (btn) btn.classList.add('on');
+  if (!wData) return;
+  if (tab==='main')      { renderWx(wData); }
+  else if (tab==='feels'){ renderFeelsLikeTab(); }
+  else if (tab==='air')  { renderAirPollenTab(); }
+  else if (tab==='compare'){ renderCompareTab(); }
+  else if (tab==='history'){ renderHistoryTab(); }
+  else if (tab==='tide') { renderTideMoonTab(); }
+  else if (tab==='hurricane'){ renderHurricaneCard(); }
+}
+
+function renderCompareTab() {
+  var c1 = wData.name + (wData.region ? ', '+wData.region : '');
+  document.getElementById('wC').innerHTML =
+    '<div style="padding:10px 0"><div class="st">Compare Cities</div>' +
+    '<div style="display:flex;gap:7px;margin:10px 0">' +
+      '<input class="inp" id="compareInput" placeholder="Enter city to compare..." value="'+compareCity+'"/>' +
+      '<button class="go" onclick="loadCompare()">Go</button>' +
+    '</div>' +
+    '<div class="compare-grid">' +
+      '<div class="compare-col" id="c1col"><div class="compare-city">📍 '+c1+'</div>' +
+        '<div class="compare-temp">'+Math.round(wData.w.current.temperature_2m)+'°</div>' +
+        '<div style="font-size:13px;color:var(--mut)">'+wDsc(wData.w.current.weather_code)+'</div>' +
+        renderCompareStats(wData.w.current) +
+      '</div>' +
+      '<div class="compare-col" id="c2col"><div class="compare-city">🏙 '+(compareCity||'—')+'</div>' +
+        '<div id="c2data" style="color:var(--mut);font-size:13px">'+(compareCity?'Loading...':'Type a city →')+'</div>' +
+      '</div>' +
+    '</div></div>';
+  if (compareCity) loadCompare();
+}
+
+function renderCompareStats(cur) {
+  return '<div class="compare-row"><span>💧 '+cur.relative_humidity_2m+'%</span><span>💨 '+Math.round(cur.wind_speed_10m)+' mph</span></div>' +
+    '<div class="compare-row"><span>🌡 Feels '+Math.round(cur.apparent_temperature)+'°</span><span>🌧 '+Math.round(cur.precipitation||0)+'"</span></div>';
+}
+
+function loadCompare() {
+  var city = document.getElementById('compareInput').value.trim();
+  if (!city) return;
+  compareCity = city;
+  var el = document.getElementById('c2data'); if(el) el.textContent = 'Loading...';
+  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(city)+'&format=json&limit=1')
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.length) throw new Error('Not found');
+      var lat=parseFloat(res[0].lat), lon=parseFloat(res[0].lon);
+      return fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+        '&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,precipitation'+
+        '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto');
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var cur = d.current;
+      var c2 = document.getElementById('c2col');
+      if (c2) c2.innerHTML =
+        '<div class="compare-city">🏙 '+city+'</div>' +
+        '<div class="compare-temp">'+Math.round(cur.temperature_2m)+'°</div>' +
+        '<div style="font-size:13px;color:var(--mut)">'+wDsc(cur.weather_code)+'</div>' +
+        renderCompareStats(cur);
+    })
+    .catch(function(){ var el=document.getElementById('c2data'); if(el) el.textContent='City not found.'; });
+}
+
+// ── HISTORY TAB ───────────────────────────────────────────
+function renderHistoryTab() {
+  if (!wData) return;
+  document.getElementById('wC').innerHTML = '<div class="ldg"><span>📈</span>Loading weather history...</div>';
+  fetchWeatherHistory(wData.lat, wData.lon).then(function(d) {
+    var days = d.daily, n = days.time.length;
+    var maxTemp = Math.max.apply(null, days.temperature_2m_max);
+    var html = '<div style="padding:10px 0"><div class="st">7-Day Weather History</div>' +
+      '<div style="font-size:11px;color:var(--mut);margin-bottom:10px">Max temperature last 7 days</div>' +
+      '<div class="hist-bar-wrap">';
+    for (var i=0; i<n-1; i++) {
+      var t = days.temperature_2m_max[i], pct = Math.round(t/maxTemp*100);
+      var col = t<32?'#81d4fa':t<50?'#4fc3f7':t<70?'#43a047':t<85?'#fb8c00':'#ef5350';
+      var d2 = new Date(days.time[i]);
+      var label = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d2.getDay()];
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center">' +
+        '<div class="hist-bar" style="height:'+pct+'%;background:'+col+';width:100%" title="'+Math.round(t)+'°F"></div>' +
+        '<div class="hist-label">'+label+'</div></div>';
+    }
+    html += '</div>' +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<tr style="color:var(--mut);font-size:10px;text-transform:uppercase"><td>Day</td><td>Hi</td><td>Lo</td><td>Rain</td><td>Wind</td><td>Cond</td></tr>';
+    for (var j=0; j<n-1; j++) {
+      var dd = new Date(days.time[j]);
+      var dl = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getDay()]+' '+dd.getDate();
+      html += '<tr style="border-top:1px solid var(--bdr);padding:4px 0">' +
+        '<td style="padding:5px 0">'+dl+'</td>' +
+        '<td style="color:#ef5350">'+Math.round(days.temperature_2m_max[j])+'°</td>' +
+        '<td style="color:#81d4fa">'+Math.round(days.temperature_2m_min[j])+'°</td>' +
+        '<td>'+days.precipitation_sum[j].toFixed(2)+'"</td>' +
+        '<td>'+Math.round(days.wind_speed_10m_max[j])+'mph</td>' +
+        '<td>'+wIco(days.weather_code[j],1)+'</td></tr>';
+    }
+    html += '</table></div></div>';
+    document.getElementById('wC').innerHTML = html;
+  }).catch(function(){
+    document.getElementById('wC').innerHTML = '<div class="err">Could not load weather history.</div>';
+  });
+}
+
+// ── TIDE & MOON TAB ───────────────────────────────────────
+function renderTideMoonTab() {
+  if (!wData) return;
+  // Moon phase calculation
+  var now = new Date();
+  var lunar = (now - new Date('2000-01-06')) / (29.530588 * 86400000);
+  lunar = lunar - Math.floor(lunar);
+  var moonPhase = Math.round(lunar * 8) % 8;
+  var moonNames = ['🌑 New Moon','🌒 Waxing Crescent','🌓 First Quarter','🌔 Waxing Gibbous','🌕 Full Moon','🌖 Waning Gibbous','🌗 Last Quarter','🌘 Waning Crescent'];
+  var moonIcons = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+  var moonPct = Math.round(lunar * 100);
+  var daysToFull = Math.round((0.5 - (lunar > 0.5 ? lunar - 1 : lunar)) * 29.53);
+  var isCoastal = Math.abs(wData.lat) < 60; // rough check
+  // Tide simulation based on lunar phase and time
+  var tides = [];
+  var baseH = 12 * (Math.abs(Math.sin(lunar * Math.PI * 2)) * 0.4 + 0.6);
+  for (var t = 0; t < 4; t++) {
+    var h = new Date(); h.setHours(h.getHours() + t * 6 + Math.round(lunar * 3));
+    tides.push({
+      time: h.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      type: t % 2 === 0 ? 'High Tide 🔼' : 'Low Tide 🔽',
+      height: (t % 2 === 0 ? baseH : baseH * 0.35).toFixed(1)
+    });
+  }
+  var html = '<div style="padding:10px 0">' +
+    '<div class="moon-card">' +
+      '<div class="moon-icon">'+moonIcons[moonPhase]+'</div>' +
+      '<div><div class="st" style="margin-bottom:4px">'+moonNames[moonPhase]+'</div>' +
+        '<div style="font-size:12px;color:var(--mut)">'+moonPct+'% illuminated</div>' +
+        '<div style="font-size:12px;color:var(--mut)">'+Math.abs(daysToFull)+' days '+(daysToFull>0?'to':'since')+' full moon</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="tide-card"><div class="st" style="margin-bottom:8px">Tide Forecast '+(isCoastal?'':'(estimated)')+'</div>';
+  tides.forEach(function(t) {
+    html += '<div class="tide-row"><span>'+t.type+'</span><span style="color:var(--mut)">'+t.time+'</span><span style="color:var(--a)">'+t.height+' ft</span></div>';
+  });
+  html += '</div></div>';
+  document.getElementById('wC').innerHTML = html;
+}
+
+// ── SMART ALERTS / THRESHOLDS ─────────────────────────────
+var thresholds = JSON.parse(localStorage.getItem('st_thresh') || '{}');
+var threshActive = { temp: false, rain: false, nws: false, digest: false };
+
+function togThresh(type) {
+  threshActive[type] = !threshActive[type];
+  var tg = document.getElementById('thresh'+type.charAt(0).toUpperCase()+type.slice(1)+'Tg');
+  if (tg) tg.classList.toggle('on', threshActive[type]);
+}
+
+function saveThresholds() {
+  thresholds.temp = document.getElementById('threshTemp').value;
+  thresholds.tempType = document.getElementById('threshTempType').value;
+  thresholds.digestTime = document.getElementById('digestTime').value;
+  thresholds.tempOn = threshActive.temp;
+  thresholds.rainOn = threshActive.rain;
+  thresholds.nwsOn = threshActive.nws;
+  thresholds.digestOn = threshActive.digest;
+  try { localStorage.setItem('st_thresh', JSON.stringify(thresholds)); } catch(e) {}
+  var fb = document.getElementById('threshFb');
+  fb.className = 'pcf ok'; fb.textContent = '✓ Smart alerts saved!';
+  setTimeout(function(){ fb.textContent=''; }, 2500);
+  scheduleSmartAlerts();
+  logActivity('Updated smart alert thresholds');
+}
+
+function scheduleSmartAlerts() {
+  // Daily digest
+  if (thresholds.digestOn && thresholds.digestTime) {
+    var parts = thresholds.digestTime.split(':');
+    var now = new Date(), next = new Date();
+    next.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    var delay = next - now;
+    setTimeout(function() {
+      sendDailyDigest();
+      setInterval(sendDailyDigest, 86400000);
+    }, delay);
+  }
+}
+
+function sendDailyDigest() {
+  if (!wData || Notification.permission !== 'granted') return;
+  var cur = wData.w.current, daily = wData.w.daily;
+  try {
+    new Notification('⛈ StormTrack Daily Digest — ' + wData.name, {
+      body: 'Today: Hi '+Math.round(daily.temperature_2m_max[0])+'° Lo '+Math.round(daily.temperature_2m_min[0])+'° · '+
+        wDsc(daily.weather_code[0]) + ' · Rain '+daily.precipitation_probability_max[0]+'%',
+      icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+      tag: 'stormtrack-digest'
+    });
+  } catch(e) {}
+}
+
+function checkSmartAlerts() {
+  if (!wData || !thresholds) return;
+  var cur = wData.w.current, hourly = wData.w.hourly;
+  // Temperature threshold
+  if (thresholds.tempOn && thresholds.temp) {
+    var t = cur.temperature_2m, limit = parseFloat(thresholds.temp);
+    var triggered = thresholds.tempType === 'below' ? t <= limit : t >= limit;
+    if (triggered) {
+      var key = 'thresh_temp_'+Math.floor(Date.now()/3600000);
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        var icon = thresholds.tempType === 'below' ? '🥶' : '🔥';
+        if (Notification.permission === 'granted') {
+          try { new Notification(icon+' Temperature Alert — '+wData.name, {
+            body: 'Temperature is '+Math.round(t)+'°F (threshold: '+thresholds.tempType+' '+limit+'°F)',
+            icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png', tag:'thresh-temp'
+          }); } catch(e) {}
+        }
+      }
+    }
+  }
+  // Rain starting soon (check next 30 min of hourly)
+  if (thresholds.rainOn && hourly) {
+    var now = new Date(), rainSoon = false;
+    for (var i=0; i<2 && i<hourly.time.length; i++) {
+      var ht = new Date(hourly.time[i]);
+      if (Math.abs(ht-now) < 3600000 && hourly.precipitation_probability[i] > 60) { rainSoon=true; break; }
+    }
+    if (rainSoon) {
+      var rkey = 'thresh_rain_'+new Date().toDateString()+new Date().getHours();
+      if (!localStorage.getItem(rkey)) {
+        localStorage.setItem(rkey, '1');
+        if (Notification.permission === 'granted') {
+          try { new Notification('🌧 Rain Starting Soon — '+wData.name, {
+            body: 'Rain expected in the next 30-60 minutes. Grab an umbrella!',
+            icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png', tag:'thresh-rain'
+          }); } catch(e) {}
+        }
+      }
+    }
+  }
+  // NWS auto-alert
+  if (thresholds.nwsOn) { checkNWSAlerts(); }
+}
+
+function checkNWSAlerts() {
+  if (!wData) return;
+  var url = 'https://api.weather.gov/alerts/active?point='+wData.lat.toFixed(4)+','+wData.lon.toFixed(4);
+  fetch(url, { headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      (d.features || []).forEach(function(f) {
+        var p = f.properties;
+        var key = 'nws_'+p.id;
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, '1');
+        var sev = p.severity === 'Extreme' ? 'emergency' : p.severity === 'Severe' ? 'warning' : 'watch';
+        // Auto-create alert
+        var a = {
+          id: Date.now() + Math.random(),
+          type: sev, severity: sev, events: [], title: p.event,
+          msg: (p.headline || p.description || '').slice(0, 200),
+          push: true, redAlert: sev === 'emergency' || sev === 'warning',
+          sendAt: null, expires: p.expires ? new Date(p.expires) : null,
+          created: new Date(), active: true, scheduled: false, expired: false,
+          zoneLatLngs: [], autoGenerated: true
+        };
+        alerts.unshift(a);
+        save(); renderA(); renderH(); chkRed();
+        if (Notification.permission === 'granted') fireNotification(a);
+        logActivity('Auto-alert from NWS: ' + p.event);
+      });
+    }).catch(function(){});
+}
+
+// ── WIDGET CARDS IN WEATHER ───────────────────────────────
+function buildWidgetRow(cur, daily) {
+  var widgets = [
+    { icon:'💧', val: cur.relative_humidity_2m+'%', label:'Humidity', bar: cur.relative_humidity_2m, col:'#4fc3f7' },
+    { icon:'💨', val: Math.round(cur.wind_speed_10m)+' mph', label:'Wind', bar: Math.min(cur.wind_speed_10m/60*100,100), col:'#81d4fa' },
+    { icon:'👁', val: cur.visibility ? (Math.round(cur.visibility/1000*0.621)+' mi') : 'N/A', label:'Visibility', bar: Math.min((cur.visibility||10000)/16000*100,100), col:'#a5d6a7' },
+    { icon:'🌡', val: Math.round(daily.temperature_2m_max[0])+'°/'+Math.round(daily.temperature_2m_min[0])+'°', label:'Hi / Lo', bar: 60, col:'#ffb74d' },
+    { icon:'☔', val: daily.precipitation_probability_max[0]+'%', label:'Rain Chance', bar: daily.precipitation_probability_max[0], col:'#90caf9' },
+    { icon:'☀️', val: Math.round(daily.uv_index_max[0]||0), label:'UV Index', bar: Math.min((daily.uv_index_max[0]||0)/11*100,100), col:'#ffe082' },
+  ];
+  return '<div class="widget-row">' + widgets.map(function(w) {
+    return '<div class="widget-card"><div class="widget-icon">'+w.icon+'</div>' +
+      '<div class="widget-big">'+w.val+'</div>' +
+      '<div class="widget-label">'+w.label+'</div>' +
+      '<div class="widget-bar"><div class="widget-bar-fill" style="width:'+Math.round(w.bar)+'%;background:'+w.col+'"></div></div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
 // ─── INIT ─────────────────────────────────────────────────
-// Poll JSONBin every 30 seconds so all users see new alerts live
 // Poll every 10 seconds for near-real-time updates
 setInterval(pullAlerts, 10000);
 // Weather auto-refresh every 10 min
