@@ -1176,26 +1176,29 @@ function getLayerUrl(type) {
 
 function addRadarLayer() {
   if (radarLayer) { try { wMap.removeLayer(radarLayer); } catch(e){} radarLayer = null; }
+  // Show immediately with estimated timestamp
+  var initTs = radarTimestamp || (Math.floor(Date.now()/1000) - 600);
+  radarLayer = L.tileLayer(
+    'https://tilecache.rainviewer.com/v2/radar/'+initTs+'/512/{z}/{x}/{y}/3/1_1.png',
+    { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+  ).addTo(wMap);
+  updateLegend('rain');
+  // Then fetch latest timestamp and update silently
   fetch('https://api.rainviewer.com/public/weather-maps.json')
     .then(function(r){ return r.json(); })
     .then(function(d){
       var frames = d.radar && d.radar.past ? d.radar.past : [];
-      var ts = frames.length ? frames[frames.length-1].time : Math.floor(Date.now()/1000)-600;
+      if (!frames.length) return;
+      var ts = frames[frames.length-1].time;
+      if (ts === initTs) return; // already on latest
       radarTimestamp = ts;
+      if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
         { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
       ).addTo(wMap);
-      updateLegend('rain');
     })
-    .catch(function(){
-      var ts = Math.floor(Date.now()/1000) - 600;
-      radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
-        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
-      );
-      radarLayer.addTo(wMap);
-    });
+    .catch(function(){});
 }
 
 // ── LAYER SYSTEM ─────────────────────────────────────────
@@ -1324,18 +1327,23 @@ function setWLayer(type, btn) {
     attribution: '<a href="https://mesonet.agron.iastate.edu">Iowa Mesonet / NWS</a>' };
 
   if (type === 'rain') {
-    // RainViewer TWC color palette (color=3) — matches The Weather Channel exactly
+    // Use cached timestamp immediately so radar shows instantly
+    var showRadar = function(ts) {
+      if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+      ).addTo(wMap);
+    };
+    // Show immediately with last known timestamp
+    showRadar(radarTimestamp || Math.floor(Date.now()/1000)-600);
+    // Then update to latest timestamp in background
     fetch('https://api.rainviewer.com/public/weather-maps.json')
       .then(function(r){ return r.json(); })
       .then(function(d){
         var frames = d.radar && d.radar.past ? d.radar.past : [];
         var ts = frames.length ? frames[frames.length-1].time : radarTimestamp;
-        radarTimestamp = ts;
-        if (radarLayer) { wMap.removeLayer(radarLayer); radarLayer=null; }
-        radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/6/1_1.png',
-          { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
-        ).addTo(wMap);
+        if (ts !== radarTimestamp) { radarTimestamp = ts; showRadar(ts); }
       })
       .catch(function(){
         radarLayer = L.tileLayer(
@@ -1609,7 +1617,7 @@ function loadNWSAlerts(map) {
         badge.textContent = nwsData.length ? nwsData.length : '';
         badge.style.display = nwsData.length ? 'inline-block' : 'none';
       }
-      injectNWSBannerAlerts();
+      injectNWSIntoPanel(nwsData);
     });
   }
 
