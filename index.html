@@ -1443,6 +1443,8 @@ function updateUserMarker(lat, lon, cityName) {
       type: 'STORE_LOCATION', lat: lat, lon: lon
     });
   }
+  // Fetch NWS UGC zones for this location
+  try { fetchUserZones(); } catch(e) {}
   if (!wMap) return;
   if (userMarker) wMap.removeLayer(userMarker);
   var icon = L.divIcon({
@@ -1460,6 +1462,37 @@ function updateUserMarker(lat, lon, cityName) {
 var nwsPolygons = [];
 var nwsLayerOn = true;
 var nwsData = null; // cached NWS features
+var nwsUserZones = []; // UGC zone codes for user's location
+
+function fetchUserZones() {
+  if (!userLat || !userLon) return;
+  // NWS zones for a point — returns UGC codes like "NYZ072"
+  fetch('https://api.weather.gov/points/' + userLat.toFixed(4) + ',' + userLon.toFixed(4), {
+    headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var props = d.properties || {};
+    nwsUserZones = [];
+    // Extract zone identifiers from the response
+    if (props.forecastZone) {
+      var z = props.forecastZone.split('/').pop();
+      if (z) nwsUserZones.push(z);
+    }
+    if (props.county) {
+      var c = props.county.split('/').pop();
+      if (c) nwsUserZones.push(c);
+    }
+    if (props.fireWeatherZone) {
+      var f = props.fireWeatherZone.split('/').pop();
+      if (f) nwsUserZones.push(f);
+    }
+    if (nwsUserZones.length && nwsData) {
+      injectNWSIntoPanel(nwsData);
+    }
+  })
+  .catch(function() {});
+}
 
 var NWS_SEV_MAP = {
   'Tornado Warning':'emergency','Tornado Watch':'watch',
@@ -1715,20 +1748,46 @@ function injectNWSIntoPanel(features) {
     var desc = (p.description || '').slice(0, 200);
     var expires = p.expires ? new Date(p.expires) : null;
     var area = p.areaDesc || '';
-    // Only show if user's GPS location is inside the alert polygon
-    // No polygon = skip (too imprecise to show)
+    // Check if user is inside this alert zone
     if (!userLat || !userLon) return;
-    if (!geom || !geom.coordinates) return;
     var appliesToUser = false;
-    var coords = geom.coordinates;
-    var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
-    rings.forEach(function(ring) {
-      if (appliesToUser) return;
-      var latlngs = ring[0].map(function(c){ return [c[1], c[0]]; });
-      if (pointInPolygon(userLat, userLon, latlngs)) {
-        appliesToUser = true;
+
+    // Method 1: polygon geometry (most accurate)
+    if (geom && geom.coordinates) {
+      var coords = geom.coordinates;
+      var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
+      rings.forEach(function(ring) {
+        if (appliesToUser) return;
+        var latlngs = ring[0].map(function(c){ return [c[1], c[0]]; });
+        if (pointInPolygon(userLat, userLon, latlngs)) appliesToUser = true;
+      });
+    }
+
+    // Method 2: UGC zone lookup via NWS API (most alerts use zones not polygons)
+    // Check synchronously using cached zone data
+    if (!appliesToUser && nwsUserZones && p.geocode) {
+      var ugc = p.geocode.UGC || [];
+      var same = p.geocode.SAME || [];
+      ugc.forEach(function(z) { if (nwsUserZones.indexOf(z) >= 0) appliesToUser = true; });
+      same.forEach(function(z) { if (nwsUserZones.indexOf(z) >= 0) appliesToUser = true; });
+    }
+
+    // Method 3: county/city name match as last resort (tight match only)
+    if (!appliesToUser && wData && area) {
+      var cityName = (wData.name || '').toLowerCase();
+      var regionName = (wData.region || '').toLowerCase();
+      // Only match if city name explicitly appears in area description
+      if (cityName.length > 3 && area.toLowerCase().indexOf(cityName) >= 0) appliesToUser = true;
+      // County match — area often says "SomeCounty County"
+      if (!appliesToUser && regionName.length > 3) {
+        var areaLow = area.toLowerCase();
+        // Check each word in region against area
+        regionName.split(' ').forEach(function(word) {
+          if (word.length > 4 && areaLow.indexOf(word) >= 0) appliesToUser = true;
+        });
       }
-    });
+    }
+
     if (!appliesToUser) return;
     // Build a panel-compatible alert object (read-only, not saved)
     nwsPanelAlerts.push({
