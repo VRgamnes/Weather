@@ -1217,7 +1217,7 @@ function getLayerUrl(type) {
   // OpenWeatherMap free tile layers (no key needed for basic tiles via open proxy)
   // Using RainViewer for precipitation (100% free, no key)
   if (type === 'rain') {
-    return 'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/512/{z}/{x}/{y}/4/1_1.png';
+    return 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png';
   }
   // For wind/temp/cloud — use open-meteo visual crossing tiles via wttr.in style
   // Fallback to a nice semi-transparent overlay showing the concept
@@ -1235,16 +1235,16 @@ function addRadarLayer() {
         radarTimestamp = frames[frames.length - 1].time;
       }
       radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.8, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.8, tileSize: 256, zIndex: 2, crossOrigin: true }
       );
       radarLayer.addTo(wMap);
     })
     .catch(function() {
       // Fallback with approximate timestamp
       radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.8, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.8, tileSize: 256, zIndex: 2, crossOrigin: true }
       );
       radarLayer.addTo(wMap);
     });
@@ -1262,7 +1262,7 @@ function addRadarLayer() {
 var wLayerObj = null;
 var rvData = null;
 
-var layerNames = {rain:'Live radar', wind:'Wind speed', temp:'Temperature', clouds:'Satellite'};
+var layerNames = {rain:'NEXRAD radar', wind:'Wind speed', temp:'Temperature', clouds:'Satellite'};
 
 // ── UPDATE TIMER ──────────────────────────────────────────
 var lastUpdateTime = null;
@@ -1302,6 +1302,22 @@ function tickUpdateTimer() {
 
 // Tick every second
 setInterval(tickUpdateTimer, 1000);
+
+function showNEXRADLegend() {
+  var scale = document.getElementById('colorScale');
+  var bar = document.getElementById('scaleBar');
+  var min = document.getElementById('scaleMin');
+  var max = document.getElementById('scaleMax');
+  if (!scale) return;
+  scale.style.display = 'flex';
+  // NEXRAD standard color scale: light blue→green→yellow→orange→red→magenta
+  bar.style.background = 'linear-gradient(to right,#00bfff,#00ff00,#ffff00,#ff8800,#ff0000,#ff00ff,#ffffff)';
+  bar.style.width = '80px';
+  bar.style.height = '8px';
+  bar.style.borderRadius = '3px';
+  min.textContent = 'Light';
+  max.textContent = 'Extreme';
+}
 
 function updateLegend(type) {
   var el = document.getElementById('layerLegend');
@@ -1355,10 +1371,10 @@ function setWLayer(type, btn) {
     var latestRadar = radarFrames.length ? radarFrames[radarFrames.length - 1].time : radarTimestamp;
 
     if (type === 'rain') {
-      // RainViewer precipitation radar
+      // NEXRAD composite radar
       radarLayer = L.tileLayer(
-        'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
       ).addTo(wMap);
 
     } else if (type === 'wind') {
@@ -1445,8 +1461,8 @@ function setWLayer(type, btn) {
         // Radar on top
         if (!radarLayer) {
           radarLayer = L.tileLayer(
-            'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
-            { opacity: 0.3, tileSize: 512, zoomOffset: -1, zIndex: 3, crossOrigin: true }
+            'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+            { opacity: 0.3, tileSize: 256, zIndex: 3, crossOrigin: true }
           ).addTo(wMap);
         }
       });
@@ -1525,13 +1541,13 @@ function setWLayer(type, btn) {
         var satPath = latestSat.path || ('/v2/satellite/' + latestSat.time);
         radarLayer = L.tileLayer(
           'https://tilecache.rainviewer.com' + satPath + '/512/{z}/{x}/{y}/0/0_0.png',
-          { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+          { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
         ).addTo(wMap);
       } else {
         // Fallback: show radar if no satellite data
         radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/' + latestRadar + '/512/{z}/{x}/{y}/4/1_1.png',
-          { opacity: 0.85, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }
+          'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+          { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
         ).addTo(wMap);
       }
     }
@@ -1775,11 +1791,11 @@ function initAdminMap() {
     .then(function(d) {
       var frames = d.radar && d.radar.past;
       var ts = frames && frames.length ? frames[frames.length - 1].time : radarTimestamp;
-      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + ts + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.6, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }).addTo(aMap);
+      aRadar = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.6, tileSize: 256, zIndex: 2, crossOrigin: true }).addTo(aMap);
     }).catch(function() {
-      aRadar = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/' + radarTimestamp + '/512/{z}/{x}/{y}/4/1_1.png',
-        { opacity: 0.6, tileSize: 512, zoomOffset: -1, zIndex: 2, crossOrigin: true }).addTo(aMap);
+      aRadar = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.6, tileSize: 256, zIndex: 2, crossOrigin: true }).addTo(aMap);
     });
 
   // Show user location on admin map
@@ -3073,7 +3089,7 @@ function openMod(id) {
         .then(function(d){
           var frames=d.radar&&d.radar.past;
           var ts=frames&&frames.length?frames[frames.length-1].time:radarTimestamp;
-          L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/4/1_1.png',{opacity:0.7,tileSize:512,zoomOffset:-1,crossOrigin:true}).addTo(modZoneMap);
+          L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',{opacity:0.7,tileSize:256,crossOrigin:true}).addTo(modZoneMap);
         }).catch(function(){});
     },100);
   } else { zw.style.display='none'; }
@@ -3735,6 +3751,16 @@ function buildWidgetRow(cur, daily) {
 // ─── INIT ─────────────────────────────────────────────────
 // Poll every 10 seconds for near-real-time updates
 setInterval(pullAlerts, 10000);
+// Refresh NEXRAD radar every 5 minutes (matches NWS update cycle)
+setInterval(function() {
+  if (wLayer === 'rain' && wMap && radarLayer) {
+    wMap.removeLayer(radarLayer);
+    radarLayer = L.tileLayer(
+      'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?_=' + Date.now(),
+      { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
+    ).addTo(wMap);
+  }
+}, 300000);
 // Weather auto-refresh every 10 min
 setInterval(function(){if(wData)loadWx(document.getElementById('locIn').value.trim()||'New York');},600000);
 
