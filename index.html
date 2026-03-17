@@ -1022,138 +1022,78 @@ function pullAlerts() {
   showSyncStatus('Connecting...', 'var(--a)');
   fetch(url, { cache: 'no-store' })
   .then(function(r) {
-    if (!r.ok) return r.text().then(function(txt) {
-      throw new Error('Worker returned HTTP ' + r.status + ': ' + txt.slice(0,120));
-    });
+    if (!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,100)); });
     return r.json();
   })
   .then(function(parsed) {
-    // Worker returned an error object instead of alerts
-    if (parsed.error) throw new Error('Worker error: ' + parsed.error + ' — ' + (parsed.detail||'').slice(0,120));
-    // Handle both old format (just alerts array) and new (object with alerts+settings)
-    var remote = [];
-    if (Array.isArray(parsed)) {
-      remote = parsed;
-    } else {
-      remote = parsed.alerts || [];
-      if (parsed.settings) applySettings(parsed.settings);
+    if (parsed.error) throw new Error('Worker error ' + parsed.error);
+    var remote = Array.isArray(parsed) ? parsed : (parsed.alerts || []);
+    // Apply settings
+    if (!Array.isArray(parsed) && parsed.settings) {
+      try { applySettings(parsed.settings); } catch(e) {}
     }
-    updateStats();
-    pingUserCount();
-    // Check daily weather question schedule
-    try { checkWxQSchedule(); } catch(e) {}
-    // Parse date strings back to Date objects
+    // Parse dates
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
       if (a.expires) a.expires = new Date(a.expires);
       if (a.created) a.created = new Date(a.created);
     });
     alerts = remote;
-    // Restart expiry timers
+    // Expiry timers
     Object.keys(expT).forEach(function(k){ clearTimeout(expT[k]); });
     expT = {};
     var now = new Date();
     var needsSave = false;
     alerts.forEach(function(a) {
-      // If scheduled and send time has ALREADY passed — activate it now
-      // This handles the case where the app was closed during the scheduled window
-      if (a.scheduled && a.sendAt && new Date(a.sendAt) <= now) {
-        a.active = true;
-        a.scheduled = false;
-        needsSave = true;
-      }
-      // If scheduled and send time is still in the future — set a timer
+      if (a.scheduled && a.sendAt && new Date(a.sendAt) <= now) { a.active=true; a.scheduled=false; needsSave=true; }
       if (a.scheduled && a.sendAt && new Date(a.sendAt) > now) {
-        (function(id) {
-          setTimeout(function() {
-            // When timer fires, activate and push update to everyone
-            var al = alerts.find(function(x){ return x.id === id; });
-            if (al && al.scheduled) {
-              al.active = true;
-              al.scheduled = false;
-              save(); // push to Gist so all users see it
-              renderA(); renderH();
-              addAlertZonesToMap(wMap);
-              if (aMap) addAlertZonesToMap(aMap);
-              chkRed();
-            }
-          }, new Date(a.sendAt) - now);
-        })(a.id);
+        (function(id){ setTimeout(function(){ var al=alerts.find(function(x){return x.id===id;}); if(al&&al.scheduled){al.active=true;al.scheduled=false;save();renderA();renderH();}}, new Date(a.sendAt)-now); })(a.id);
       }
-      // Expiry timer
       if (a.active && !a.expired && a.expires && new Date(a.expires) > now) {
-        (function(id) {
-          expT[id] = setTimeout(function() { expA(id); }, new Date(a.expires) - now);
-        })(a.id);
+        (function(id){ expT[id]=setTimeout(function(){expA(id);},new Date(a.expires)-now); })(a.id);
       }
-      // If active and expires has already passed — expire it now
-      if (a.active && !a.expired && a.expires && new Date(a.expires) <= now) {
-        a.active = false;
-        a.expired = true;
-        needsSave = true;
-      }
+      if (a.active && !a.expired && a.expires && new Date(a.expires) <= now) { a.active=false; a.expired=true; needsSave=true; }
     });
-    // If any alerts changed state, push update to Gist
-    if (needsSave) {
-      save();
-    }
-    // Fire notifications for new alerts in user's zone
+    if (needsSave) save();
+    // Notifications
     var notified = JSON.parse(localStorage.getItem('st_notified') || '[]');
-    var prevIds  = window._prevAlertIds || [];
+    var prevIds = window._prevAlertIds || [];
     remote.forEach(function(a) {
       if (a.active && !a.expired) {
-        var isNew    = prevIds.indexOf(String(a.id)) < 0 && notified.indexOf(String(a.id)) < 0;
-        var inMyArea = alertAppliesToCity(a);
+        var isNew = prevIds.indexOf(String(a.id)) < 0 && notified.indexOf(String(a.id)) < 0;
         if (isNew) {
           notified.push(String(a.id));
-          // Only fire notification if ALL conditions met:
-          // 1. Admin toggled Push ON for this alert
-          // 2. User granted notification permission
-          // 3. Alert has no zone (everyone) OR user is specifically inside/near the zone
           var hasZone = a.zoneLatLngs && a.zoneLatLngs.length > 2;
-          var locationKnown = !!(userLat && userLon);
-          // If alert has a zone, user MUST be in that zone — no zone = everyone
-          var zoneOk = !hasZone || (locationKnown && inMyArea);
-          if (a.push && zoneOk && Notification.permission === 'granted') {
-            fireNotification(a);
-          }
+          var zoneOk = !hasZone || (userLat && userLon && alertAppliesToCity(a));
+          if (a.push && zoneOk && Notification.permission === 'granted') fireNotification(a);
         }
       }
     });
-    try { localStorage.setItem('st_notified', JSON.stringify(notified.slice(-100))); } catch(e){}
+    try { localStorage.setItem('st_notified', JSON.stringify(notified.slice(-100))); } catch(e) {}
     window._prevAlertIds = remote.map(function(a){ return String(a.id); });
     renderA();
     renderH();
     chkRed();
-    addAlertZonesToMap(wMap);
-    if (aMap) addAlertZonesToMap(aMap);
+    try { addAlertZonesToMap(wMap); } catch(e) {}
+    try { if(aMap) addAlertZonesToMap(aMap); } catch(e) {}
+    try { updateStats(); } catch(e) {}
+    try { pingUserCount(); } catch(e) {}
+    try { checkWxQSchedule(); } catch(e) {}
+    try { if(nwsData) injectNWSIntoPanel(nwsData); } catch(e) {}
+    // Clear any previous error
+    var errDiv = document.getElementById('syncErrDiv');
+    if (errDiv) errDiv.innerHTML = '';
     showSyncStatus('Live', 'var(--ok)');
   })
   .catch(function(e) {
-    var msg = (e.message || 'Unknown').replace(/^Error: /, '');
-    // Only report if not just "Load failed" (common when offline)
+    var msg = (e.message || 'Unknown').replace(/^Error: /,'');
+    showSyncStatus('Offline', 'var(--mut)');
     if (msg !== 'Load failed' && msg !== 'Failed to fetch') {
-      reportError('sync', 'Alert server: ' + msg, 'Worker: ' + WORKER_URL);
-    } else {
-      showSyncStatus('📡 Offline', 'var(--mut)');
-    }
-    var wc = document.getElementById('wC');
-    if (wc) {
-      var errDiv = document.getElementById('syncErrDiv');
-      if (!errDiv) {
-        errDiv = document.createElement('div');
-        errDiv.id = 'syncErrDiv';
-        wc.parentNode.insertBefore(errDiv, wc);
-      }
-      errDiv.innerHTML = '<div class="err" style="margin:12px">' +
-        '<strong>⚠️ Cannot connect to alert server</strong><br><br>' +
-        '<b>Error:</b> ' + msg + '<br><br>' +
-        '<b>Worker:</b> <a href="' + WORKER_URL + '" target="_blank" style="color:var(--a)">' + WORKER_URL + '</a><br><br>' +
-        '<button onclick="pullAlerts()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;padding:8px 16px;font-size:13px;cursor:pointer;font-family:sans-serif">Retry</button>' +
-        '</div>';
+      reportError('sync', msg, 'Worker: ' + WORKER_URL);
     }
   });
 }
+
 
 function save() {
   pushAlerts();
