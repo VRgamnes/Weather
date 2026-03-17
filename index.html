@@ -2342,51 +2342,69 @@ function scheduleWxQ() {
 }
 
 function fireWxQ() {
-  if (!wData) return;
-  var q = generateWxQuestion(wData);
-  if (!q) return;
   var today = new Date().toDateString();
-  // Mark as fired today so we don't repeat
   appSettings.wxQLastFired = today;
-  // Set as MOTD for ALL users — saves to Gist so everyone sees it
-  appSettings.motd = q;
-  appSettings.motdOn = true;
-  appSettings.motdColor = '#0288d1';
-  applySettings(appSettings);
-  saveSettings(); // pushes to Gist → everyone sees it within 10s
-  // Push notification for this device
-  if (Notification.permission === 'granted') {
-    try {
-      new Notification('⛈ StormTrack Daily Weather', {
-        body: q,
-        icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
-        tag: 'stormtrack-wxq',
-        requireInteraction: false
-      });
-    } catch(e) {}
+  // Save the trigger to Gist — each user generates their OWN question
+  // based on their own local weather when they see the flag
+  appSettings.wxQTriggeredDate = today;
+  appSettings.wxQEnabled = wxQEnabled;
+  // Don't set a fixed motd — each device generates their own
+  appSettings.motdOn = false; // clear any old MOTD
+  saveSettings();
+  // This device generates and shows its own question immediately
+  if (wData) {
+    var q = generateWxQuestion(wData);
+    if (q) {
+      var mb = document.getElementById('motdBanner');
+      var mt = document.getElementById('motdText');
+      if (mb) { mb.classList.add('on'); mb.style.background='#0288d133'; mb.style.borderBottomColor='#0288d1'; mb.style.color='#fff'; }
+      if (mt) mt.textContent = q;
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification('⛈ StormTrack Daily Weather', {
+            body: q,
+            icon: 'https://cdn-icons-png.flaticon.com/512/1163/1163624.png',
+            tag: 'stormtrack-wxq'
+          });
+        } catch(e) {}
+      }
+    }
   }
-  logActivity('Daily weather question sent: ' + q.slice(0, 50));
+  logActivity('Daily weather question triggered');
 }
 
 function checkWxQSchedule() {
-  if (!appSettings.wxQEnabled || !appSettings.wxQTime) return;
-  var now = new Date();
-  var today = now.toDateString();
-  if (appSettings.wxQLastFired === today) return;
-  var parts = appSettings.wxQTime.split(':');
-  var scheduled = new Date();
-  scheduled.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
-  if (now < scheduled) return;
-  // Use stored location if available, otherwise current wData
-  if (!wData && appSettings.wxQLat && appSettings.wxQLon) {
-    // Fetch weather for stored location then fire
-    fetchWeatherData(appSettings.wxQLat, appSettings.wxQLon,
-      appSettings.wxQCity || 'your area', '', '');
-    // Will fire on next check once wData is loaded
-    return;
+  if (!appSettings.wxQEnabled) return;
+  var today = new Date().toDateString();
+
+  // ADMIN device: check if it's time to trigger
+  if (appSettings.wxQTime) {
+    var now = new Date();
+    var parts = appSettings.wxQTime.split(':');
+    var scheduled = new Date();
+    scheduled.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
+    if (now >= scheduled && appSettings.wxQLastFired !== today) {
+      if (wData) { fireWxQ(); return; }
+    }
   }
-  if (!wData) return;
-  fireWxQ();
+
+  // ALL USERS: if admin triggered today, generate local question
+  if (appSettings.wxQTriggeredDate === today) {
+    var localKey = 'wxq_shown_' + today;
+    if (!localStorage.getItem(localKey) && wData) {
+      localStorage.setItem(localKey, '1');
+      var q = generateWxQuestion(wData);
+      if (q) {
+        var mb = document.getElementById('motdBanner');
+        var mt = document.getElementById('motdText');
+        if (mb) { mb.classList.add('on'); mb.style.background='#0288d133'; mb.style.borderBottomColor='#0288d1'; mb.style.color='#fff'; }
+        if (mt) mt.textContent = q;
+        if (Notification.permission === 'granted') {
+          try { new Notification('⛈ StormTrack Daily Weather', { body: q, icon:'https://cdn-icons-png.flaticon.com/512/1163/1163624.png', tag:'stormtrack-wxq' }); } catch(e) {}
+        }
+      }
+    }
+  }
 }
 
 // Sound
