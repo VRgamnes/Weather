@@ -1611,7 +1611,7 @@ function pointInGeoJSONPoly(lat, lon, feature) {
 
 function loadNWSAlerts(map) {
   nwsData = [];
-  fetch('https://api.weather.gov/alerts/active?status=actual&limit=500', {
+  fetch('https://api.weather.gov/alerts/active', {
     headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' }
   })
   .then(function(r) {
@@ -1861,16 +1861,17 @@ function addAlertZonesToMap(map) {
     var icon = getAlertIcon(a), label = getAlertLabel(a);
     var expires = a.expires ? 'Expires: '+fmt(a.expires) : '';
     poly.bindPopup(
-      '<div style="min-width:200px">' +
+      '<div style="min-width:220px">' +
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
-        '<span style="font-size:20px">'+icon+'</span>' +
-        '<div><div style="font-weight:600;font-size:14px">'+a.title+'</div>' +
-        '<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:'+color+'33;color:'+color+';border:1px solid '+color+'55">'+label+'</span></div>' +
+        '<span style="font-size:22px">'+icon+'</span>' +
+        '<div><div style="font-weight:600;font-size:15px;color:#e8f4fd">'+a.title+'</div>' +
+        '<span style="font-size:10px;padding:2px 8px;border-radius:6px;background:'+color+'33;color:'+color+';border:1px solid '+color+'55;font-weight:600">'+label+'</span></div>' +
       '</div>' +
-      '<div style="font-size:12px;color:#b0c4d8;line-height:1.5;margin-bottom:6px">'+a.msg+'</div>' +
-      (expires?'<div style="font-size:11px;color:#7eb8d4">'+expires+'</div>':'') +
-      '<button onclick="editA('+a.id+');goAdmin()" style="margin-top:8px;width:100%;background:var(--card);border:1px solid var(--bdr);border-radius:7px;color:var(--txt);font-size:11px;padding:6px;cursor:pointer;font-family:sans-serif">✏️ Edit Alert</button>' +
-      '</div>'
+      '<div style="font-size:13px;color:#b0c4d8;line-height:1.6;margin-bottom:8px;border-top:1px solid rgba(255,255,255,.1);padding-top:8px">'+a.msg+'</div>' +
+      (expires?'<div style="font-size:11px;color:#7eb8d4;margin-bottom:8px">⌛ '+expires+'</div>':'') +
+      '<button onclick="editA('+a.id+');goAdmin()" style="width:100%;background:'+color+'22;border:1px solid '+color+'55;border-radius:8px;color:'+color+';font-size:12px;padding:8px;cursor:pointer;font-family:sans-serif;font-weight:500">✏️ Edit Alert</button>' +
+      '</div>',
+      { autoPan: true, autoPanPaddingTopLeft: [10, 80], maxWidth: 280, className: 'nws-popup' }
     );
     alertPolygons.push(poly);
   });
