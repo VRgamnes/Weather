@@ -1040,6 +1040,8 @@ function pullAlerts() {
     }
     updateStats();
     pingUserCount();
+    // Check daily weather question schedule
+    try { checkWxQSchedule(); } catch(e) {}
     // Parse date strings back to Date objects
     remote.forEach(function(a) {
       if (a.sendAt)  a.sendAt  = new Date(a.sendAt);
@@ -1471,7 +1473,7 @@ function updateUserMarker(lat, lon, cityName) {
     });
   }
   // Fetch NWS UGC zones for this location
-  try { fetchUserZones(); } catch(e) {}
+  try { if(userLat && userLon) fetchUserZones(); } catch(e) {}
   if (!wMap) return;
   if (userMarker) wMap.removeLayer(userMarker);
   var icon = L.divIcon({
@@ -1515,7 +1517,7 @@ function fetchUserZones() {
       if (f) nwsUserZones.push(f);
     }
     if (nwsUserZones.length && nwsData) {
-      injectNWSIntoPanel(nwsData);
+      try { injectNWSIntoPanel(nwsData); } catch(e) { reportError("nws","Panel inject error",e.message); }
     }
   })
   .catch(function() {});
@@ -1689,7 +1691,7 @@ function loadNWSAlerts(map) {
       badge.style.display = nwsData.length ? 'inline-block' : 'none';
     }
     // Show matching alerts in active alerts banner
-    injectNWSIntoPanel(nwsData);
+    try { injectNWSIntoPanel(nwsData); } catch(e) { reportError("nws","Panel inject error",e.message); }
     // Try to get more pages if available
     if (d.pagination && d.pagination.next) {
       loadNWSPage(map, d.pagination.next);
@@ -1707,7 +1709,7 @@ function loadNWSPage(map, url) {
     if (nwsLayerOn) renderNWSOnMap(map, nwsData);
     var badge = document.getElementById('nwsBadge');
     if (badge) { badge.textContent = nwsData.length; badge.style.display = 'inline-block'; }
-    injectNWSIntoPanel(nwsData);
+    try { injectNWSIntoPanel(nwsData); } catch(e) { reportError("nws","Panel inject error",e.message); }
     if (d.pagination && d.pagination.next && more.length > 0) loadNWSPage(map, d.pagination.next);
   }).catch(function(){});
 }
@@ -1763,7 +1765,9 @@ var nwsPanelAlerts = [];
 function injectNWSIntoPanel(features) {
   nwsPanelAlerts = [];
   if (!features || !features.length) { renderA(); return; }
+  if (!userLat || !userLon) { renderA(); return; }
   features.forEach(function(f) {
+    try {
     var p = f.properties;
     var geom = f.geometry;
     if (!p || !p.event) return;
@@ -1828,6 +1832,7 @@ function injectNWSIntoPanel(features) {
       push: false, redAlert: sev === 'emergency' || sev === 'warning',
       zoneLatLngs: [], nws: true, icon: icon
     });
+    } catch(e) {} // skip malformed NWS alerts
   });
   renderA();
   // Red screen for NWS emergency/warning in your area
