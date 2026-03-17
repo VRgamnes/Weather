@@ -881,6 +881,15 @@ body.light-mode .ab{color:#1a2332}
     <div id="actLog"><div class="he">No activity yet</div></div>
   </div>
 
+  <!-- ERROR LOG -->
+  <div class="ac">
+    <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
+      <span>🔴 Error Log</span>
+      <button onclick="errorLog=[];try{localStorage.removeItem('st_errlog');}catch(e){}renderErrorLog();" style="background:none;border:1px solid var(--bdr);border-radius:6px;color:var(--mut);font-size:11px;padding:3px 8px;cursor:pointer">Clear</button>
+    </div>
+    <div id="errorLogList"><div class="he">No errors logged</div></div>
+  </div>
+
   <!-- CLEAR ALL ALERTS -->
   <div class="ac">
     <div class="ct">Danger Zone</div>
@@ -995,11 +1004,63 @@ var curEvents   = [];
 var curType     = 'warning'; // kept for legacy compatibility
 
 // ─── GIST SYNC ────────────────────────────────────────────
+// ── ERROR / STATUS SYSTEM ─────────────────────────────────
+var errorLog = [];
 function showSyncStatus(msg, color) {
   var el = document.getElementById('syncStatus');
   if (!el) return;
   el.textContent = msg;
   el.style.color = color || 'var(--mut)';
+}
+
+// Central error reporter — logs + shows toast + optionally shows in error panel
+function reportError(category, msg, detail) {
+  var entry = {
+    time: new Date().toISOString(),
+    category: category,
+    msg: msg,
+    detail: detail || ''
+  };
+  errorLog.unshift(entry);
+  errorLog = errorLog.slice(0, 100);
+  try { localStorage.setItem('st_errlog', JSON.stringify(errorLog.slice(0,50))); } catch(e){}
+
+  // Show toast in syncStatus
+  var icons = {
+    sync: '📡', radar: '🗺️', satellite: '🛰', weather: '⛅',
+    nws: '⚠️', gps: '📍', notif: '🔔', layer: '🗺️', save: '💾', default: '⚠️'
+  };
+  var icon = icons[category] || icons.default;
+  showSyncStatus(icon + ' ' + msg, 'var(--dng)');
+
+  // Auto-clear after 5s unless it's a critical sync error
+  if (category !== 'sync') {
+    setTimeout(function() {
+      var el = document.getElementById('syncStatus');
+      if (el && el.textContent.indexOf(msg) >= 0) {
+        showSyncStatus('Live', 'var(--ok)');
+      }
+    }, 5000);
+  }
+
+  // Update error panel in admin if open
+  renderErrorLog();
+  console.error('[StormTrack]['+category+']', msg, detail||'');
+}
+
+function renderErrorLog() {
+  var c = document.getElementById('errorLogList'); if (!c) return;
+  if (!errorLog.length) { c.innerHTML = '<div class="he">No errors logged</div>'; return; }
+  c.innerHTML = errorLog.slice(0,30).map(function(e) {
+    var col = '#ef5350';
+    var icons = {sync:'📡',radar:'🗺️',satellite:'🛰',weather:'⛅',nws:'⚠️',gps:'📍',notif:'🔔',layer:'🗺️',save:'💾'};
+    return '<div class="log-item">' +
+      '<span style="margin-right:5px">'+(icons[e.category]||'⚠️')+'</span>' +
+      '<span style="color:'+col+';font-weight:500">'+e.category.toUpperCase()+'</span> — '+e.msg +
+      (e.detail ? '<div style="font-size:10px;color:var(--mut);margin-top:2px;word-break:break-all">'+e.detail+'</div>' : '') +
+      '<div class="log-time">'+new Date(e.time).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</div>' +
+      '</div>';
+  }).join('');
 }
 
 function pushAlerts() {
@@ -1022,8 +1083,7 @@ function pushAlerts() {
   })
   .catch(function(e) {
     isSyncing = false;
-    showSyncStatus('Save failed', 'var(--dng)');
-    console.error('Push error:', e);
+    reportError('save', 'Save failed: ' + (e.message||'Unknown'), 'Worker: ' + WORKER_URL);
   });
 }
 
@@ -1114,12 +1174,15 @@ function pullAlerts() {
         var inMyArea = alertAppliesToCity(a);
         if (isNew) {
           notified.push(String(a.id));
-          // Only fire notification if:
-          // 1. Admin toggled "Push Notification" ON for this alert
-          // 2. User has granted permission
-          // 3. Alert applies to user's location
-          var notifEnabled = localStorage.getItem('st_notif_enabled') === 'true';
-          if (a.push && inMyArea && Notification.permission === 'granted' && notifEnabled) {
+          // Only fire notification if ALL conditions met:
+          // 1. Admin toggled Push ON for this alert
+          // 2. User granted notification permission
+          // 3. Alert has no zone (everyone) OR user is specifically inside/near the zone
+          var hasZone = a.zoneLatLngs && a.zoneLatLngs.length > 2;
+          var locationKnown = !!(userLat && userLon);
+          // If alert has a zone, user MUST be in that zone — no zone = everyone
+          var zoneOk = !hasZone || (locationKnown && inMyArea);
+          if (a.push && zoneOk && Notification.permission === 'granted') {
             fireNotification(a);
           }
         }
@@ -1136,29 +1199,21 @@ function pullAlerts() {
   })
   .catch(function(e) {
     var msg = e.message || 'Unknown error';
-    showSyncStatus('⚠️ ' + msg, 'var(--dng)');
-    console.error('Pull error:', e);
-    // Always show the error on screen so we know exactly what failed
-    var errHtml = '<div class="err" style="margin:12px">' +
-      '<strong>⚠️ Cannot connect to alert server</strong><br><br>' +
-      '<b>Error:</b> ' + msg + '<br><br>' +
-      '<b>Worker URL:</b> ' + WORKER_URL + '<br><br>' +
-      '<b>What to check:</b><br>' +
-      '1. Open <a href="' + WORKER_URL + '" target="_blank" style="color:var(--a)">' + WORKER_URL + '</a> — does it show alerts JSON?<br>' +
-      '2. If it shows an error, the Worker code needs fixing<br>' +
-      '3. If it loads fine, this is a network issue<br><br>' +
-      '<button onclick="pullAlerts()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;padding:8px 16px;font-size:13px;cursor:pointer;font-family:sans-serif">Retry</button>' +
-      '</div>';
+    reportError('sync', 'Alert server unreachable', msg + ' | Worker: ' + WORKER_URL);
     var wc = document.getElementById('wC');
     if (wc) {
-      // Append error below weather content rather than replacing it
       var errDiv = document.getElementById('syncErrDiv');
       if (!errDiv) {
         errDiv = document.createElement('div');
         errDiv.id = 'syncErrDiv';
         wc.parentNode.insertBefore(errDiv, wc);
       }
-      errDiv.innerHTML = errHtml;
+      errDiv.innerHTML = '<div class="err" style="margin:12px">' +
+        '<strong>⚠️ Cannot connect to alert server</strong><br><br>' +
+        '<b>Error:</b> ' + msg + '<br><br>' +
+        '<b>Worker:</b> <a href="' + WORKER_URL + '" target="_blank" style="color:var(--a)">' + WORKER_URL + '</a><br><br>' +
+        '<button onclick="pullAlerts()" style="background:var(--a);border:none;border-radius:8px;color:#0a1628;padding:8px 16px;font-size:13px;cursor:pointer;font-family:sans-serif">Retry</button>' +
+        '</div>';
     }
   });
 }
@@ -1366,183 +1421,68 @@ function setWLayer(type, btn) {
   clearWLayers();
   updateLegend(type);
 
-  getRVData(function(d) {
-    var radarFrames = d && d.radar && d.radar.past ? d.radar.past : [];
-    var latestRadar = radarFrames.length ? radarFrames[radarFrames.length - 1].time : radarTimestamp;
+  // All layers use Iowa State Mesonet tiles — proper, georeferenced, no API key
+  var base = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/';
+  var opts = { tileSize: 256, zIndex: 2, crossOrigin: true, opacity: 0.85,
+    attribution: '<a href="https://mesonet.agron.iastate.edu">Iowa Mesonet</a>' };
 
-    if (type === 'rain') {
-      // NEXRAD composite radar
-      radarLayer = L.tileLayer(
-        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-        { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true }
-      ).addTo(wMap);
+  if (type === 'rain') {
+    // NEXRAD base reflectivity composite — Weather Channel color scale
+    radarLayer = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png', opts).addTo(wMap);
 
-    } else if (type === 'wind') {
-      // Windy.com public forecast tiles — real wind data, no key, georeferenced
-      // These are the same tiles used on windy.com, served from their public CDN
-      wLayerObj = L.tileLayer(
-        'https://ims.windy.com/im/v3.0/forecast/ecmwf-hres/single/surface/wind/{z}/{x}/{y}/wind_10m-surface.jpg',
-        { opacity: 0.0, zIndex: 2 }
-      );
-      // windy tiles need auth — use meteoblue wind tiles instead (free, no key)
-      // Actually use a fully open approach: fetch wind data as GeoJSON from open-meteo
-      // and render as a proper colour-coded L.imageOverlay over the US bounding box
-      // using an offscreen canvas — this IS georeferenced because we pin it to real lat/lon bounds
+  } else if (type === 'wind') {
+    // NWS surface wind speed analysis (mph, color coded)
+    radarLayer = L.tileLayer(base + 'hrrr::WIND:10_m_above_ground:anl/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
+    // Overlay NEXRAD lightly on top
+    wLayerObj = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.3, zIndex: 3 })).addTo(wMap);
 
-      // US bounds: SW 24°N, -125°W  NE 50°N, -66°W
-      var usBounds = [[24.396308, -124.848974], [49.384358, -66.885444]];
-      var cvSize = 512;
-      var cv = document.createElement('canvas');
-      cv.width = cvSize; cv.height = cvSize;
-      var ctx = cv.getContext('2d');
+  } else if (type === 'temp') {
+    // NWS 2m temperature analysis — colored purple→blue→green→yellow→red
+    radarLayer = L.tileLayer(base + 'hrrr::TMP:2_m_above_ground:anl/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
 
-      // We have wData with current wind — use open-meteo gridded data
-      // Fetch a 10x10 grid of wind values across the US from open-meteo
-      var gridPromises = [];
-      var gridW = 10, gridH = 8;
-      var latMin = 24, latMax = 50, lonMin = -125, lonMax = -66;
-      var windGrid = [];
-
-      for (var gy = 0; gy < gridH; gy++) {
-        for (var gx = 0; gx < gridW; gx++) {
-          var glat = latMin + (latMax - latMin) * (gy / (gridH-1));
-          var glon = lonMin + (lonMax - lonMin) * (gx / (gridW-1));
-          gridPromises.push(
-            fetch('https://api.open-meteo.com/v1/forecast?latitude=' + glat.toFixed(1) +
-              '&longitude=' + glon.toFixed(1) +
-              '&current=wind_speed_10m&wind_speed_unit=mph&timezone=auto&forecast_days=1')
-              .then(function(r){ return r.json(); })
-              .then(function(d){ return d.current ? d.current.wind_speed_10m : 10; })
-              .catch(function(){ return 10; })
-          );
-        }
+  } else if (type === 'clouds') {
+    // GOES-16 IR satellite — try multiple product names until one works
+    var goesProducts = [
+      'goes-16-conus-ir107-gray',  // IR longwave — cloud tops bright white, clear sky black
+      'goes16-ch13',
+      'goes-east-conus-ch13',
+      'goes-16-conus-ch13'
+    ];
+    var goesIdx = 0;
+    function tryGoesProduct() {
+      if (goesIdx >= goesProducts.length) {
+        // All failed — use RGBC visible as last resort
+        radarLayer = L.tileLayer(
+          'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-16-conus-vis/{z}/{x}/{y}.png',
+          Object.assign({}, opts, { opacity: 0.85 })
+        ).addTo(wMap);
+        return;
       }
-
-      Promise.all(gridPromises).then(function(values) {
-        // Draw wind speed heatmap onto canvas
-        var maxVal = Math.max.apply(null, values);
-        var minVal = Math.min.apply(null, values);
-
-        function windColor(v) {
-          var t = Math.min(Math.max((v - 0) / 60, 0), 1);
-          // 0 mph = deep blue, 15 = cyan, 30 = green, 45 = yellow, 60+ = red
-          var r, g, b;
-          if (t < 0.25)      { r=0;   g=Math.round(t*4*200);     b=220; }
-          else if (t < 0.5)  { r=0;   g=200;                      b=Math.round(220-(t-0.25)*4*220); }
-          else if (t < 0.75) { r=Math.round((t-0.5)*4*255); g=220; b=0; }
-          else               { r=255; g=Math.round(220-(t-0.75)*4*220); b=0; }
-          return [r, g, b];
-        }
-
-        // Bilinear interpolation across the grid, rendered to canvas
-        var imgData = ctx.createImageData(cvSize, cvSize);
-        for (var py = 0; py < cvSize; py++) {
-          for (var px = 0; px < cvSize; px++) {
-            var fx = (px / cvSize) * (gridW - 1);
-            var fy = ((cvSize - 1 - py) / cvSize) * (gridH - 1);
-            var ix = Math.floor(fx), iy = Math.floor(fy);
-            var tx2 = fx - ix, ty2 = fy - iy;
-            ix = Math.min(ix, gridW-2); iy = Math.min(iy, gridH-2);
-            var v00 = values[iy*gridW+ix],     v10 = values[iy*gridW+ix+1];
-            var v01 = values[(iy+1)*gridW+ix], v11 = values[(iy+1)*gridW+ix+1];
-            var val = v00*(1-tx2)*(1-ty2) + v10*tx2*(1-ty2) + v01*(1-tx2)*ty2 + v11*tx2*ty2;
-            var col = windColor(val);
-            var i = (py * cvSize + px) * 4;
-            imgData.data[i]   = col[0];
-            imgData.data[i+1] = col[1];
-            imgData.data[i+2] = col[2];
-            imgData.data[i+3] = 180; // semi-transparent
-          }
-        }
-        ctx.putImageData(imgData, 0, 0);
-        var dataUrl = cv.toDataURL('image/png');
-        if (wLayerObj) wMap.removeLayer(wLayerObj);
-        wLayerObj = L.imageOverlay(dataUrl, usBounds, { opacity: 0.75, zIndex: 2 }).addTo(wMap);
-        // Radar on top
-        if (!radarLayer) {
-          radarLayer = L.tileLayer(
-            'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
-            { opacity: 0.3, tileSize: 256, zIndex: 3, crossOrigin: true }
-          ).addTo(wMap);
-        }
+      if (radarLayer) { try { wMap.removeLayer(radarLayer); } catch(e){} }
+      radarLayer = L.tileLayer(base + goesProducts[goesIdx] + '/{z}/{x}/{y}.png',
+        Object.assign({}, opts, { opacity: 0.9 }));
+      radarLayer.on('tileerror', function() {
+        goesIdx++;
+        tryGoesProduct();
       });
-
-    } else if (type === 'temp') {
-      // Fetch 10x8 grid of temperatures across the US from open-meteo, render as heatmap
-      var usBounds2 = [[24.396308, -124.848974], [49.384358, -66.885444]];
-      var cvSize2 = 512;
-      var cv2 = document.createElement('canvas');
-      cv2.width = cvSize2; cv2.height = cvSize2;
-      var ctx2 = cv2.getContext('2d');
-      var gridW2 = 10, gridH2 = 8;
-      var latMin2 = 24, latMax2 = 50, lonMin2 = -125, lonMax2 = -66;
-      var tempPromises = [];
-
-      for (var gy2 = 0; gy2 < gridH2; gy2++) {
-        for (var gx2 = 0; gx2 < gridW2; gx2++) {
-          var glat2 = latMin2 + (latMax2 - latMin2) * (gy2 / (gridH2-1));
-          var glon2 = lonMin2 + (lonMax2 - lonMin2) * (gx2 / (gridW2-1));
-          tempPromises.push(
-            fetch('https://api.open-meteo.com/v1/forecast?latitude=' + glat2.toFixed(1) +
-              '&longitude=' + glon2.toFixed(1) +
-              '&current=temperature_2m&temperature_unit=fahrenheit&timezone=auto&forecast_days=1')
-              .then(function(r){ return r.json(); })
-              .then(function(d){ return d.current ? d.current.temperature_2m : 60; })
-              .catch(function(){ return 60; })
-          );
-        }
-      }
-
-      Promise.all(tempPromises).then(function(values2) {
-        function tempColor(v) {
-          // -20°F=deep purple, 0=blue, 32=cyan, 50=green, 70=yellow, 90=orange, 110+=red
-          var t = Math.min(Math.max((v + 20) / 130, 0), 1);
-          var r, g, b;
-          if (t < 0.15)      { r=80;  g=0;   b=180; }
-          else if (t < 0.3)  { r=0;   g=80;  b=220; }
-          else if (t < 0.45) { r=0;   g=200; b=200; }
-          else if (t < 0.6)  { r=0;   g=200; b=50;  }
-          else if (t < 0.72) { r=200; g=220; b=0;   }
-          else if (t < 0.85) { r=255; g=140; b=0;   }
-          else               { r=220; g=20;  b=20;  }
-          return [r, g, b];
-        }
-
-        var imgData2 = ctx2.createImageData(cvSize2, cvSize2);
-        for (var py2 = 0; py2 < cvSize2; py2++) {
-          for (var px2 = 0; px2 < cvSize2; px2++) {
-            var fx2 = (px2 / cvSize2) * (gridW2 - 1);
-            var fy2 = ((cvSize2 - 1 - py2) / cvSize2) * (gridH2 - 1);
-            var ix2 = Math.min(Math.floor(fx2), gridW2-2);
-            var iy2 = Math.min(Math.floor(fy2), gridH2-2);
-            var tx3 = fx2 - ix2, ty3 = fy2 - iy2;
-            var t00 = values2[iy2*gridW2+ix2],       t10 = values2[iy2*gridW2+ix2+1];
-            var t01 = values2[(iy2+1)*gridW2+ix2],   t11 = values2[(iy2+1)*gridW2+ix2+1];
-            var val2 = t00*(1-tx3)*(1-ty3) + t10*tx3*(1-ty3) + t01*(1-tx3)*ty3 + t11*tx3*ty3;
-            var col2 = tempColor(val2);
-            var i2 = (py2 * cvSize2 + px2) * 4;
-            imgData2.data[i2]   = col2[0];
-            imgData2.data[i2+1] = col2[1];
-            imgData2.data[i2+2] = col2[2];
-            imgData2.data[i2+3] = 175;
-          }
-        }
-        ctx2.putImageData(imgData2, 0, 0);
-        var dataUrl2 = cv2.toDataURL('image/png');
-        wLayerObj = L.imageOverlay(dataUrl2, usBounds2, { opacity: 0.8, zIndex: 2 }).addTo(wMap);
-      });
-
-    } else if (type === 'clouds') {
-      // GOES-East infrared satellite from Iowa State Mesonet — distinct from radar
-      // IR satellite shows cloud tops in grey/white — completely different from radar colors
-      radarLayer = L.tileLayer(
-        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir/{z}/{x}/{y}.png',
-        { opacity: 0.85, tileSize: 256, zIndex: 2, crossOrigin: true,
-          attribution: 'GOES-East IR via Iowa State Mesonet',
-          errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' }
-      ).addTo(wMap);
+      radarLayer.addTo(wMap);
     }
-  });
+    tryGoesProduct();
+
+  } else if (type === 'snow') {
+    // NOHRSC snow depth analysis
+    radarLayer = L.tileLayer(base + 'nohrsc-snowdepth/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.8 }));
+    radarLayer.on('tileerror', function() {
+      if (wMap && radarLayer) wMap.removeLayer(radarLayer);
+      radarLayer = L.tileLayer(base + 'snodas-snow_depth/{z}/{x}/{y}.png',
+        Object.assign({}, opts, { opacity: 0.8 })).addTo(wMap);
+    });
+    radarLayer.addTo(wMap);
+  }
 }
 
 function updateUserMarker(lat, lon, cityName) {
@@ -1728,7 +1668,7 @@ function loadNWSAlerts(map) {
     // Inject NWS alerts that cover user location into active alerts banner
     injectNWSBannerAlerts();
   })
-  .catch(function(e) { console.log('NWS load error:', e); });
+  .catch(function(e) { reportError('nws', 'NWS alerts failed to load', e.message||'Unknown'); });
 }
 
 function injectNWSBannerAlerts() {
@@ -3102,7 +3042,7 @@ function useGPS() {
     },
     function(err) {
       btn.textContent = '📍'; btn.disabled = false;
-      alert('Could not get your location.\n\n' + err.message + '\n\nMake sure location permissions are allowed for this site.');
+      reportError('gps', 'GPS failed: ' + err.message, 'Make sure location permissions are allowed');
     },
     { timeout: 10000, enableHighAccuracy: true }
   );
@@ -3169,7 +3109,7 @@ function fireNotification(a) {
     });
     n.onclick = function() { window.focus(); n.close(); };
   } catch(e) {
-    console.error('Notification error:', e);
+    reportError('notif', 'Notification failed: ' + e.message);
   }
 }
 function fmt(d) { if(!d) return'—'; return new Date(d).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
@@ -3214,8 +3154,13 @@ function isNearZone(lat, lon, polygon, bufferMiles) {
 // Returns true if alert should show for current city
 // No zone = show to everyone. Zone = only show if city is inside or within 30 miles
 function alertAppliesToCity(a) {
-  if (!a.zoneLatLngs || a.zoneLatLngs.length < 3) return true; // no zone = everyone
-  if (!userLat || !userLon) return true; // no location known yet = show it
+  // NWS auto-generated alerts already filtered by location before injecting
+  if (a.nwsGenerated) return true;
+  // No zone drawn = applies to everyone
+  if (!a.zoneLatLngs || a.zoneLatLngs.length < 3) return true;
+  // No user location yet = dont show
+  if (!userLat || !userLon) return false;
+  // Check if inside polygon OR within 10 miles of edge
   return isNearZone(userLat, userLon, a.zoneLatLngs, 10);
 }
 
@@ -3379,7 +3324,7 @@ function loadWx(city) {
         setOffline(true);
         renderWx(cached);
       } else {
-        document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
+        reportError('weather', 'Weather load failed: ' + e.message, 'Search: ' + city); document.getElementById('wC').innerHTML='<div class="err">⚠️ '+e.message+'<br><small>Try a city name, ZIP code, or street address.</small></div>';
       }
     });
 }
@@ -3637,31 +3582,7 @@ function toggleFloodZones(btn) {
 }
 
 // ── SNOW DEPTH LAYER ──────────────────────────────────────
-// Added as a setWLayer option — uses NOHRSC snow analysis tiles
-var snowLayerObj = null;
-var origSetWLayer = setWLayer;
-setWLayer = function(type, btn) {
-  if (type === 'snow') {
-    clearWLayers();
-    document.querySelectorAll('.mc-btn').forEach(function(b){b.classList.remove('on');});
-    if(btn) btn.classList.add('on');
-    // NOHRSC snow depth WMS
-    snowLayerObj = L.tileLayer.wms('https://mapserver.snowobs.com/wms', {
-      layers: 'snow_depth_24h', format: 'image/png', transparent: true, opacity: 0.7,
-      attribution: 'NOHRSC'
-    }).addTo(wMap);
-    snowLayerObj.on('tileerror', function(){
-      // Fallback to Open-Snow-style overlay
-      snowLayerObj = L.tileLayer(
-        'https://tiles.opensnowmap.org/pistes/{z}/{x}/{y}.png',
-        { opacity:0.6, attribution:'OpenSnowMap' }
-      ).addTo(wMap);
-    });
-    wLayer = 'snow';
-    return;
-  }
-  origSetWLayer(type, btn);
-};
+// Added as a setWLayer option — uses NO// Snow layer handled inside setWLayer
 
 // ── SEVERE WEATHER HISTORY ────────────────────────────────
 function fetchWeatherHistory(lat, lon) {
