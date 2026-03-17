@@ -2252,7 +2252,8 @@ function generateWxQuestion(d) {
   if (uv >= 8)          questions.push('☀️ Very high UV today — did you put on sunscreen before going outside?');
   if (hi>=75&&hi<90&&!isRain&&!isStorm) questions.push('😊 Beautiful day ahead! Any outdoor plans for today?');
   if (!questions.length) questions.push('🌤 How are you planning for the weather today in ' + city + '?');
-
+  return questions[Math.floor(Math.random() * questions.length)] || null;
+}
 
 function previewWxQ() {
   var el = document.getElementById('wxQPreview');
@@ -3871,7 +3872,7 @@ function renderHistoryTab() {
         '<td style="padding:5px 0">'+dl+'</td>' +
         '<td style="color:#ef5350">'+Math.round(days.temperature_2m_max[j])+'°</td>' +
         '<td style="color:#81d4fa">'+Math.round(days.temperature_2m_min[j])+'°</td>' +
-        '<td>'+days.precipitation_sum[j].toFixed(2)+'"</td>' +
+        '<td>'+days.precipitation_sum[j].toFixed(2)+'</td>' +
         '<td>'+Math.round(days.wind_speed_10m_max[j])+'mph</td>' +
         '<td>'+wIco(days.weather_code[j],1)+'</td></tr>';
     }
@@ -4212,7 +4213,7 @@ window.addEventListener('load', function() {
     }
   }
 });
-}</script>
+</script>
 </div><!-- /main-content -->
 </div><!-- /app-shell -->
 </body>
