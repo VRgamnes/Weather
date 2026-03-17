@@ -725,132 +725,7 @@ body.light-mode .ab{color:#1a2332}
     </div>
   </div>
 
-  <!-- SMART ALERTS -->
-  <div class="ac">
-    <div class="ct">Smart Auto-Alerts</div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:10px">App automatically sends alerts based on conditions</div>
-    
-    <div class="fg"><label class="fl">🌡 Temperature Threshold</label>
-      <div class="thresh-row">
-        <select class="inp" id="threshTempType" style="flex:0 0 auto;width:110px">
-          <option value="below">Below</option>
-          <option value="above">Above</option>
-        </select>
-        <input class="inp" id="threshTemp" type="number" placeholder="32" style="width:70px"/>
-        <span class="thresh-badge">°F</span>
-        <div class="tg" id="threshTempTg" onclick="togThresh('temp')"><div class="tgk"></div></div>
-      </div>
-    </div>
-
-    <div class="fg"><label class="fl">🌧 Rain Starting Soon</label>
-      <div class="thresh-row">
-        <span style="font-size:12px;color:var(--mut);flex:1">Alert 30 min before rain starts</span>
-        <div class="tg" id="threshRainTg" onclick="togThresh('rain')"><div class="tgk"></div></div>
-      </div>
-    </div>
-
-    <div class="fg"><label class="fl">⚠️ NWS Severe Weather Auto-Alert</label>
-      <div class="thresh-row">
-        <span style="font-size:12px;color:var(--mut);flex:1">Auto-send when NWS issues warnings</span>
-        <div class="tg" id="threshNwsTg" onclick="togThresh('nws')"><div class="tgk"></div></div>
-      </div>
-    </div>
-
-    <div class="fg"><label class="fl">📅 Daily Weather Digest</label>
-      <div class="thresh-row">
-        <input class="inp" id="digestTime" type="time" value="07:00" style="width:110px"/>
-        <div class="tg" id="threshDigestTg" onclick="togThresh('digest')"><div class="tgk"></div></div>
-      </div>
-      <div style="font-size:11px;color:var(--mut);margin-top:4px">Sends daily summary notification at set time</div>
-    </div>
-    <button class="sb" onclick="saveThresholds()">💾 Save Smart Alerts</button>
-    <div class="pcf" id="threshFb"></div>
-  </div>
-
-  <!-- ALERT TEMPLATES -->
-  <div class="ac">
-    <div class="ct">Alert Templates</div>
-    <div id="tmplList"><div class="he">No templates saved</div></div>
-    <button class="sb" style="background:var(--card);color:var(--txt);border:1px solid var(--bdr);margin-top:8px" onclick="saveTemplate()">💾 Save Current as Template</button>
-  </div>
-
-  <!-- SCHEDULED MAINTENANCE -->
-  <div class="ac">
-    <div class="ct">Scheduled Maintenance</div>
-    <div class="fg"><label class="fl">Start</label><input class="inp" id="maintStart" type="datetime-local"/></div>
-    <div class="fg"><label class="fl">End</label><input class="inp" id="maintEnd" type="datetime-local"/></div>
-    <div class="fg"><label class="fl">Message</label><input class="inp" id="maintSchedMsg" placeholder="Scheduled maintenance in progress..."/></div>
-    <button class="sb" onclick="schedMaint()">Schedule Maintenance</button>
-    <div class="pcf" id="maintSchedFb"></div>
-  </div>
-
-  <!-- USER STATS -->
-  <div class="ac">
-    <div class="ct">User Stats</div>
-    <div class="stat-row">
-      <div class="stat-mini"><div class="stat-mini-n" id="statUsers">—</div><div class="stat-mini-l">Opens Today</div></div>
-      <div class="stat-mini"><div class="stat-mini-n" id="statPeak">—</div><div class="stat-mini-l">Peak Users</div></div>
-      <div class="stat-mini"><div class="stat-mini-n" id="statZone">—</div><div class="stat-mini-l">In Zone</div></div>
-    </div>
-    <div style="font-size:11px;color:var(--mut)">Tracked anonymously — no personal data stored</div>
-  </div>
-
-  <!-- ACTIVITY LOG -->
-  <div class="ac">
-    <div class="ct">Activity Log</div>
-    <div id="actLog"><div class="he">No activity yet</div></div>
-  </div>
-
-  <!-- SMART ALERTS -->
-  <div class="ac">
-    <div class="ct">Smart Auto-Alerts</div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:10px">App automatically sends alerts based on conditions</div>
-    
-    <div class="fg"><label class="fl">🌡 Temperature Threshold</label>
-      <div class="thresh-row">
-        <select class="inp" id="threshTempType" style="flex:0 0 auto;width:110px">
-          <option value="below">Below</option>
-          <option value="above">Above</option>
-        </select>
-        <input class="inp" id="threshTemp" type="number" placeholder="32" style="width:70px"/>
-        <span class="thresh-badge">°F</span>
-        <div class="tg" id="threshTempTg" onclick="togThresh('temp')"><div class="tgk"></div></div>
-      </div>
-    </div>
-
-    <div class="fg"><label class="fl">🌧 Rain Starting Soon</label>
-      <div class="thresh-row">
-        <span style="font-size:12px;color:var(--mut);flex:1">Alert 30 min before rain starts</span>
-        <div class="tg" id="threshRainTg" onclick="togThresh('rain')"><div class="tgk"></div></div>
-      </div>
-    </div>
-
-    <div class="fg"><label class="fl">⚠️ NWS Severe Weather Auto-Alert</label>
-      <div class="thresh-row">
-        <span style="font-size:12px;color:var(--mut);flex:1">Auto-send when NWS issues warnings</span>
-        <div class="tg" id="threshNwsTg" onclick="togThresh('nws')"><div class="tgk"></div></div>
-      </div>
-    </div>
-
-    <div class="fg"><label class="fl">📅 Daily Weather Digest</label>
-      <div class="thresh-row">
-        <input class="inp" id="digestTime" type="time" value="07:00" style="width:110px"/>
-        <div class="tg" id="threshDigestTg" onclick="togThresh('digest')"><div class="tgk"></div></div>
-      </div>
-      <div style="font-size:11px;color:var(--mut);margin-top:4px">Sends daily summary notification at set time</div>
-    </div>
-    <button class="sb" onclick="saveThresholds()">💾 Save Smart Alerts</button>
-    <div class="pcf" id="threshFb"></div>
-  </div>
-
-  <!-- ALERT TEMPLATES -->
-  <div class="ac">
-    <div class="ct">Alert Templates</div>
-    <div id="tmplList"><div class="he">No templates saved</div></div>
-    <div style="margin-top:10px;display:flex;gap:7px">
-      <button class="sb" style="background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="saveTemplate()">💾 Save Current as Template</button>
-    </div>
-  </div>
+>
 
   <!-- SCHEDULED MAINTENANCE WINDOW -->
   <div class="ac">
@@ -1488,17 +1363,19 @@ function setWLayer(type, btn) {
       });
 
   } else if (type === 'snow') {
-    // NOHRSC snow depth — Iowa Mesonet
-    radarLayer = L.tileLayer(base + 'nohrsc-snowdepth/{z}/{x}/{y}.png',
-      Object.assign({}, opts, { opacity: 0.8 }));
+    // OWM snow precipitation layer
+    var snowErrOnce = false;
+    radarLayer = L.tileLayer(
+      'https://tile.openweathermap.org/map/snow/{z}/{x}/{y}.png?appid=9de243494c0b295cca9337e1e96b00e2',
+      Object.assign({}, opts, { opacity: 0.85 }));
     radarLayer.on('tileerror', function() {
-      if (wMap && radarLayer) wMap.removeLayer(radarLayer);
-      radarLayer = L.tileLayer(base + 'snodas-snow_depth/{z}/{x}/{y}.png',
-        Object.assign({}, opts, { opacity: 0.8 }));
-      radarLayer.on('tileerror', function() { reportError('layer','Snow depth tiles unavailable'); });
-      radarLayer.addTo(wMap);
+      if (snowErrOnce) return; snowErrOnce = true;
+      reportError('layer', 'Snow tiles unavailable — no snow data for this area');
     });
     radarLayer.addTo(wMap);
+    // Light radar on top
+    wLayerObj = L.tileLayer(base + 'nexrad-n0q-900913/{z}/{x}/{y}.png',
+      Object.assign({}, opts, { opacity: 0.25, zIndex: 3 })).addTo(wMap);
   }
 }
 
@@ -1669,7 +1546,8 @@ function pointInGeoJSONPoly(lat, lon, feature) {
 }
 
 function loadNWSAlerts(map) {
-  fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert', {
+  // Fetch ALL active NWS alerts for entire US — no location filter
+  fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert&region_type=land', {
     headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0 (weather alert app)' }
   })
   .then(function(r) { return r.json(); })
