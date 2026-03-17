@@ -1715,28 +1715,20 @@ function injectNWSIntoPanel(features) {
     var desc = (p.description || '').slice(0, 200);
     var expires = p.expires ? new Date(p.expires) : null;
     var area = p.areaDesc || '';
-    // Check if user is in affected area
-    // Use areaDesc to match state/county, or check polygon geometry
+    // Only show if user's GPS location is inside the alert polygon
+    // No polygon = skip (too imprecise to show)
+    if (!userLat || !userLon) return;
+    if (!geom || !geom.coordinates) return;
     var appliesToUser = false;
-    // Method 1: check polygon geometry if available
-    if (geom && geom.coordinates && userLat && userLon) {
-      var coords = geom.coordinates;
-      var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
-      rings.forEach(function(ring) {
-        if (appliesToUser) return;
-        var latlngs = ring[0].map(function(c){ return [c[1], c[0]]; });
-        if (pointInPolygon(userLat, userLon, latlngs) || isNearZone(userLat, userLon, latlngs, 10)) {
-          appliesToUser = true;
-        }
-      });
-    }
-    // Method 2: no geometry — check if area matches user's state/region
-    if (!appliesToUser && wData && area) {
-      var region = (wData.region || '').toLowerCase();
-      var country = (wData.country || '').toLowerCase();
-      if (region && area.toLowerCase().indexOf(region.slice(0,4)) >= 0) appliesToUser = true;
-      if (!appliesToUser && area.toLowerCase().indexOf('nationwide') >= 0) appliesToUser = true;
-    }
+    var coords = geom.coordinates;
+    var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
+    rings.forEach(function(ring) {
+      if (appliesToUser) return;
+      var latlngs = ring[0].map(function(c){ return [c[1], c[0]]; });
+      if (pointInPolygon(userLat, userLon, latlngs)) {
+        appliesToUser = true;
+      }
+    });
     if (!appliesToUser) return;
     // Build a panel-compatible alert object (read-only, not saved)
     nwsPanelAlerts.push({
