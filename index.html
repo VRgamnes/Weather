@@ -1520,14 +1520,96 @@ function restoreNWSIfNeeded(map) {
   }
 }
 
+// Cache for zone geometries fetched from NWS
+var nwsZoneCache = {};
+
+function fetchAndDrawZone(map, zoneUrl, f) {
+  if (nwsZoneCache[zoneUrl]) {
+    drawNWSFeature(map, nwsZoneCache[zoneUrl], f);
+    return;
+  }
+  fetch(zoneUrl, { headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.geometry) {
+        nwsZoneCache[zoneUrl] = d.geometry;
+        drawNWSFeature(map, d.geometry, f);
+      }
+    })
+    .catch(function() {});
+}
+
+function drawNWSFeature(map, geom, f) {
+  if (!geom || !geom.coordinates) return;
+  var p = f.properties;
+  var event = p.event || 'Alert';
+  var severity = p.severity || 'Unknown';
+  var color = getNWSSevColor(event, severity);
+  var sev = getNWSSev(event, severity);
+  var icon = NWS_ICON_MAP[event] || SEV_ICO[sev] || '⚠️';
+  var urgency = p.urgency || '';
+  var headline = p.headline || event;
+  var desc = (p.description || '').slice(0, 300);
+  var instruction = (p.instruction || '').slice(0, 200);
+  var onset = p.onset ? new Date(p.onset).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  var expires = p.expires ? new Date(p.expires).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  var area = p.areaDesc || '';
+  var dash = sev==='emergency'?null:sev==='warning'?'6,4':sev==='watch'?'10,6':'4,8';
+  var fillOp = sev==='emergency'?0.28:sev==='warning'?0.22:sev==='watch'?0.16:0.1;
+  var weight = sev==='emergency'?3:sev==='warning'?2.5:2;
+  var coords = geom.coordinates;
+  var rings = geom.type === 'Polygon' ? [coords] : (geom.type === 'MultiPolygon' ? coords : []);
+  rings.forEach(function(ring) {
+    var latlngs = ring[0].map(function(c) { return [c[1], c[0]]; });
+    if (latlngs.length < 3) return;
+    var poly = L.polygon(latlngs, {
+      color: color, weight: weight,
+      fillColor: color, fillOpacity: fillOp,
+      dashArray: dash, className: 'nws-poly nws-' + sev
+    }).addTo(map);
+    var popupHtml =
+      '<div style="min-width:220px;max-width:280px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+        '<span style="font-size:22px">'+icon+'</span>' +
+        '<div><div style="font-weight:600;font-size:14px;line-height:1.2">'+event+'</div>' +
+        '<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:'+color+'33;color:'+color+';border:1px solid '+color+'55;font-weight:500">'+sev.toUpperCase()+'</span>' +
+        '</div></div>' +
+      '<div style="font-size:12px;font-weight:500;color:#e8f4fd;margin-bottom:6px;line-height:1.4">'+headline+'</div>' +
+      '<div style="font-size:11px;color:#7eb8d4;margin-bottom:4px">📍 '+area+'</div>' +
+      '<div style="display:flex;gap:12px;font-size:11px;color:#7eb8d4;margin-bottom:8px">' +
+        '<span>⏰ '+onset+'</span><span>⌛ '+expires+'</span>' +
+      '</div>' +
+      (desc ? '<div style="font-size:11px;color:#b0c4d8;line-height:1.5;margin-bottom:6px;border-top:1px solid rgba(255,255,255,.1);padding-top:6px">'+desc+'</div>' : '') +
+      (instruction ? '<div style="font-size:11px;color:#ffb74d;line-height:1.5">⚡ '+instruction+'</div>' : '') +
+      '</div>';
+    poly.bindPopup(popupHtml, { maxWidth: 300, className: 'nws-popup' });
+    nwsPolygons.push(poly);
+  });
+}
+
 function renderNWSOnMap(map, features) {
   clearNWSPolygons(map);
   if (!nwsLayerOn || !features) return;
   features.forEach(function(f) {
     var p = f.properties;
     var geom = f.geometry;
-    // Many NWS alerts use UGC zones (no polygon) — skip those, only draw ones with geometry
-    if (!geom || !geom.coordinates || !geom.coordinates.length) return;
+    // If has polygon geometry, draw directly
+    if (geom && geom.coordinates && geom.coordinates.length) {
+      drawNWSFeature(map, geom, f);
+      return;
+    }
+    // No geometry — fetch zone boundary from NWS
+    // Use first UGC zone code to get boundary
+    var ugc = (p.geocode && p.geocode.UGC) ? p.geocode.UGC : [];
+    if (ugc.length) {
+      var zoneId = ugc[0];
+      // Zone URL format: /zones/{type}/{id}
+      // Zone IDs: first 2 chars = state, char 3 = type (Z=forecast, C=county, F=fire)
+      var zoneType = zoneId.charAt(2) === 'C' ? 'county' : zoneId.charAt(2) === 'F' ? 'fire' : 'forecast';
+      var zoneUrl = 'https://api.weather.gov/zones/' + zoneType + '/' + zoneId;
+      fetchAndDrawZone(map, zoneUrl, f);
+    }
+    return; // skip old code below
     var event = p.event || 'Alert';
     var severity = p.severity || 'Unknown';
     var color = getNWSSevColor(event, severity);
