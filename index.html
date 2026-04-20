@@ -14,7 +14,8 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--sky:#0a1628;--a:#4fc3f7;--a2:#81d4fa;--warn:#ff8f00;--dng:#e53935;--ok:#43a047;--txt:#e8f4fd;--mut:#7eb8d4;--card:rgba(255,255,255,.07);--ch:rgba(255,255,255,.13);--bdr:rgba(79,195,247,.2)}
-html,body{height:100%;background:var(--sky);color:var(--txt);font-family:'DM Sans',sans-serif;-webkit-text-size-adjust:100%}
+html,html{scroll-behavior:smooth}
+body{height:100%;background:var(--sky);color:var(--txt);font-family:'DM Sans',sans-serif;-webkit-text-size-adjust:100%}
 *{-webkit-tap-highlight-color:transparent}
 body.red{animation:rp 2s infinite}
 @keyframes rp{0%,100%{background:#3a0000}50%{background:#5a0000}}
@@ -24,7 +25,7 @@ body.red{animation:rp 2s infinite}
 .app-shell{display:flex;flex-direction:column;min-height:100vh}
 
 /* NAV — MOBILE: two rows */
-.nav{display:flex;flex-direction:column;padding:10px 14px;background:rgba(0,0,0,.45);border-bottom:1px solid var(--bdr);gap:8px;position:sticky;top:0;z-index:1000;width:100%}
+.nav{display:flex;flex-direction:column;padding:10px 14px;background:rgba(7,15,30,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--bdr);gap:8px;position:sticky;top:0;z-index:1000;width:100%;box-shadow:0 2px 20px rgba(0,0,0,.4)}
 .nav-row1{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
 .nav-row2{display:flex;align-items:center;gap:6px;width:100%}
 .logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--a);white-space:nowrap}
@@ -35,8 +36,8 @@ body.red{animation:rp 2s infinite}
 .go{flex-shrink:0;background:var(--a);border:none;border-radius:15px;color:#0a1628;font-size:13px;font-weight:500;padding:8px 16px;cursor:pointer;font-family:'DM Sans',sans-serif}
 .go:hover{background:var(--a2)}
 .tabs{display:flex;gap:5px}
-.tab{padding:7px 14px;border-radius:13px;font-size:13px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap}
-.tab.on{background:var(--a);color:#0a1628;font-weight:500}
+.tab{padding:7px 16px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid transparent;color:var(--mut);background:none;font-family:'DM Sans',sans-serif;transition:all .25s;white-space:nowrap;letter-spacing:.3px}
+.tab.on{background:linear-gradient(135deg,var(--a),#0288d1);color:#070f1e;font-weight:700;box-shadow:0 0 16px rgba(79,195,247,.35)}
 .tab:hover:not(.on){border-color:var(--bdr);color:var(--txt)}
 
 /* MAIN CONTENT */
@@ -460,7 +461,7 @@ body.light-mode .ab{color:#1a2332}
   <!-- Row 1: logo + tab buttons -->
   <div class="nav-row1">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="logo">⛈ StormTrack</div>
+      <div class="logo" style="display:flex;align-items:center;gap:6px"><span style="font-size:22px;filter:drop-shadow(0 0 8px rgba(79,195,247,.6))">⛈</span><span>StormTrack</span><span style="font-size:9px;background:var(--a);color:#070f1e;border-radius:4px;padding:1px 5px;font-family:'DM Sans',sans-serif;font-weight:700;margin-left:2px">LIVE</span></div>
       <span style="display:flex;align-items:center;gap:5px">
   <span id="syncDot" style="width:6px;height:6px;border-radius:50%;background:var(--mut);display:inline-block;transition:background .4s"></span>
   <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
@@ -547,7 +548,7 @@ body.light-mode .ab{color:#1a2332}
 
   <!-- MAP SECTION -->
   <div class="map-controls" id="wMapControls">
-    <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Radar</button>
+    <button class="mc-btn on" id="wLayerRain" onclick="setWLayer('rain',this)">🌧 Radar</button><button class="mc-btn" id="radarLoopBtn" onclick="toggleRadarLoop(this)" title="Animate radar loop">▶ Loop</button>
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
@@ -1149,6 +1150,11 @@ function initWeatherMap() {
   // Mark rain button as active
   var rainBtn = document.getElementById('wLayerRain');
   if (rainBtn) rainBtn.classList.add('on');
+  // Add scale control
+  L.control.scale({ imperial: true, metric: false, position: 'bottomleft' }).addTo(wMap);
+  // Smooth zoom
+  wMap.options.zoomSnap = 0.5;
+  wMap.options.wheelPxPerZoomLevel = 120;
 }
 
 function getLayerUrl(type) {
@@ -1174,7 +1180,7 @@ function addRadarLayer() {
       if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
-        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+        { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
       ).addTo(wMap);
       updateLegend('rain');
       // Show radar timestamp
@@ -1185,7 +1191,7 @@ function addRadarLayer() {
       var ts = Math.floor(Date.now()/1000) - 600;
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
-        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+        { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
       ).addTo(wMap);
       updateLegend('rain');
     });
@@ -1322,7 +1328,7 @@ function setWLayer(type, btn) {
       if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
-        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+        { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
       ).addTo(wMap);
     };
     // Show immediately with last known timestamp
@@ -1338,7 +1344,7 @@ function setWLayer(type, btn) {
       .catch(function(){
         radarLayer = L.tileLayer(
           'https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
-          { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+          { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       });
 
@@ -1360,7 +1366,7 @@ function setWLayer(type, btn) {
     radarLayer.addTo(wMap);
     // Light NEXRAD on top for context
     wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
-      { opacity:0.25, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
+      { opacity:0.25, tileSize:256, zIndex:3, crossOrigin:true }).addTo(wMap);
 
   } else if (type === 'temp') {
     // OpenWeatherMap temperature — free public CDN
@@ -1413,7 +1419,7 @@ function setWLayer(type, btn) {
     radarLayer.addTo(wMap);
     // Light radar on top
     wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
-      { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
+      { opacity:0.2, tileSize:256, zIndex:3, crossOrigin:true }).addTo(wMap);
   }
 }
 
@@ -1920,6 +1926,61 @@ function injectNWSActiveAlerts() {
   // Re-render alerts
   renderA();
   chkRed();
+}
+
+// ── RADAR ANIMATION LOOP ─────────────────────────────────
+var radarLoopActive = false;
+var radarLoopFrames = [];
+var radarLoopIdx = 0;
+var radarLoopTimer = null;
+var radarLoopLayer = null;
+
+function toggleRadarLoop(btn) {
+  if (radarLoopActive) {
+    stopRadarLoop();
+    if (btn) { btn.classList.remove('on'); btn.textContent = '▶ Loop'; }
+    // Restore current radar
+    addRadarLayer();
+  } else {
+    if (btn) { btn.classList.add('on'); btn.textContent = '⏹ Stop'; }
+    startRadarLoop();
+  }
+}
+
+function startRadarLoop() {
+  radarLoopActive = true;
+  fetch('https://api.rainviewer.com/public/weather-maps.json')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      radarLoopFrames = (d.radar && d.radar.past ? d.radar.past : []).slice(-6); // last 6 frames = ~30min
+      if (!radarLoopFrames.length) { stopRadarLoop(); return; }
+      radarLoopIdx = 0;
+      animateRadarFrame();
+    })
+    .catch(function(){ stopRadarLoop(); });
+}
+
+function animateRadarFrame() {
+  if (!radarLoopActive || !radarLoopFrames.length) return;
+  var frame = radarLoopFrames[radarLoopIdx];
+  if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
+  radarLayer = L.tileLayer(
+    'https://tilecache.rainviewer.com/v2/radar/'+frame.time+'/256/{z}/{x}/{y}/3/1_1.png',
+    { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
+  ).addTo(wMap);
+  // Show frame time
+  var rt = document.getElementById('radarTime');
+  if (rt) {
+    var d = new Date(frame.time*1000);
+    rt.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) + (radarLoopIdx===radarLoopFrames.length-1?' ●':' ○');
+  }
+  radarLoopIdx = (radarLoopIdx + 1) % radarLoopFrames.length;
+  radarLoopTimer = setTimeout(animateRadarFrame, 600); // 0.6s per frame
+}
+
+function stopRadarLoop() {
+  radarLoopActive = false;
+  if (radarLoopTimer) { clearTimeout(radarLoopTimer); radarLoopTimer = null; }
 }
 
 function toggleNWSLayer(btn) {
@@ -3630,6 +3691,7 @@ function renderWx(d) {
   var now=new Date(),isDay=cur.is_day===1;
   var DIRS=['N','NE','E','SE','S','SW','W','NW'],wdir=DIRS[Math.round((cur.wind_direction_10m||0)/45)%8];
   var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var feelsLike=Math.round(cur.apparent_temperature);
   var hi=now.getHours(),hIdx=-1;
   for(var i=0;i<hourly.time.length;i++){var td=new Date(hourly.time[i]);if(td.getHours()===hi&&td.toDateString()===now.toDateString()){hIdx=i;break;}}
   var hs=hIdx>=0?hIdx:0,hSlice=hourly.time.slice(hs,hs+16);
@@ -4193,7 +4255,7 @@ setInterval(function() {
         if (radarLayer) wMap.removeLayer(radarLayer);
         radarLayer = L.tileLayer(
           'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
-          { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+          { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       }).catch(function(){});
   }
