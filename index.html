@@ -454,13 +454,17 @@ body.light-mode .ab{color:#1a2332}
 </style>
 </head>
 <body>
+<div id="pullRefreshBar" style="position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--a),#81d4fa);transform:scaleX(0);transform-origin:left;transition:transform .3s;z-index:9999"></div>
 <div class="app-shell">
 <nav class="nav">
   <!-- Row 1: logo + tab buttons -->
   <div class="nav-row1">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="logo">⛈ StormTrack</div>
-      <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
+      <span style="display:flex;align-items:center;gap:5px">
+  <span id="syncDot" style="width:6px;height:6px;border-radius:50%;background:var(--mut);display:inline-block;transition:background .4s"></span>
+  <span id="syncStatus" style="font-size:10px;color:var(--mut);white-space:nowrap">Connecting...</span>
+</span>
       <span class="ucount desk-only"><span class="ucount-dot"></span><span id="userCountDisp"></span></span>
       <button id="notifToggleBtn" onclick="toggleNotifSetting()" style="display:none;background:none;border:1px solid var(--bdr);border-radius:12px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--mut);white-space:nowrap;transition:all .2s"></button>
     </div>
@@ -547,7 +551,7 @@ body.light-mode .ab{color:#1a2332}
     <button class="mc-btn" id="wLayerWind" onclick="setWLayer('wind',this)">💨 Wind</button>
     <button class="mc-btn" id="wLayerTemp" onclick="setWLayer('temp',this)">🌡 Temp</button>
     <button class="mc-btn" id="wLayerCloud" onclick="setWLayer('clouds',this)">🛰 Satellite</button>
-    <button class="mc-btn on" id="nwsBtn" onclick="toggleNWSLayer(this)" title="Toggle NWS official alert zones">⚠️ NWS Zones<span id="nwsBadge" style="display:none;background:#e53935;color:#fff;border-radius:8px;font-size:9px;padding:1px 5px;margin-left:4px;vertical-align:top"></span></button>
+    <button class="mc-btn on" id="nwsBtn" onclick="toggleNWSLayer(this)" title="Toggle NWS official alert zones">⚠️ NWS Zones<span id="nwsBadge" style="display:none;background:#e53935;color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 6px;margin-left:4px;vertical-align:middle;animation:pulse 2s infinite"></span></button>
     <button class="mc-btn" id="lightningBtn" onclick="toggleLightningBtn(this)">⚡ Lightning</button>
     <button class="mc-btn" id="quakeBtn" onclick="toggleEarthquakes(this)">🔴 Quakes</button>
     <button class="mc-btn" id="snowBtn" onclick="setWLayer('snow',this)">❄️ Snow</button>
@@ -936,9 +940,11 @@ var curType     = 'warning'; // kept for legacy compatibility
 var errorLog = [];
 function showSyncStatus(msg, color) {
   var el = document.getElementById('syncStatus');
+  var dot = document.getElementById('syncDot');
   if (!el) return;
   el.textContent = msg;
   el.style.color = color || 'var(--mut)';
+  if (dot) dot.style.background = color || 'var(--mut)';
 }
 
 // Central error reporter — logs + shows toast + optionally shows in error panel
@@ -1158,29 +1164,31 @@ function getLayerUrl(type) {
 
 function addRadarLayer() {
   if (radarLayer) { try { wMap.removeLayer(radarLayer); } catch(e){} radarLayer = null; }
-  // Show immediately with estimated timestamp
-  var initTs = radarTimestamp || (Math.floor(Date.now()/1000) - 600);
-  radarLayer = L.tileLayer(
-    'https://tilecache.rainviewer.com/v2/radar/'+initTs+'/512/{z}/{x}/{y}/3/1_1.png',
-    { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
-  ).addTo(wMap);
-  updateLegend('rain');
-  // Then fetch latest timestamp and update silently
+  // Always fetch fresh timestamp first — RainViewer is fast
   fetch('https://api.rainviewer.com/public/weather-maps.json')
     .then(function(r){ return r.json(); })
     .then(function(d){
       var frames = d.radar && d.radar.past ? d.radar.past : [];
-      if (!frames.length) return;
-      var ts = frames[frames.length-1].time;
-      if (ts === initTs) return; // already on latest
+      var ts = frames.length ? frames[frames.length-1].time : Math.floor(Date.now()/1000)-600;
       radarTimestamp = ts;
       if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
       radarLayer = L.tileLayer(
         'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
         { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
       ).addTo(wMap);
+      updateLegend('rain');
+      // Show radar timestamp
+      var rt = document.getElementById('radarTime');
+      if (rt) { var d=new Date(ts*1000); rt.textContent=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
     })
-    .catch(function(){});
+    .catch(function(){
+      var ts = Math.floor(Date.now()/1000) - 600;
+      radarLayer = L.tileLayer(
+        'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
+        { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
+      ).addTo(wMap);
+      updateLegend('rain');
+    });
 }
 
 // ── LAYER SYSTEM ─────────────────────────────────────────
@@ -1245,7 +1253,7 @@ function updateLegend(type) {
   if (!scale) return;
 
   var legends = {
-    rain:   { grad:'linear-gradient(to right,#646464,#04e9e7,#019ff4,#0300f4,#02fd02,#01c501,#008e00,#fdf802,#e5bc00,#fd9500,#fd0000,#d40000,#bc0000,#f800fd,#9854c6)', min:'None', max:'Extreme', lbl:'Live Radar' },
+    rain:   { grad:'linear-gradient(to right,#00d8ff 0%,#00aaff 15%,#0055ff 25%,#00ff00 35%,#00cc00 42%,#ffff00 52%,#ffaa00 62%,#ff5500 72%,#ff0000 82%,#cc0000 88%,#ff00ff 94%,#ffffff 100%)', min:'Light', max:'Extreme', lbl:'⚡ Live Radar (TWC)' },
     wind:   { grad:'linear-gradient(to right,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'Calm', max:'60+ mph', lbl:'Wind Speed' },
     temp:   { grad:'linear-gradient(to right,#9c27b0,#3f51b5,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'-20°F', max:'110°F', lbl:'Temperature' },
     clouds: { grad:'linear-gradient(to right,#111,#555,#aaa,#ddd,#fff)', min:'Clear', max:'Storm', lbl:'GOES-16 Satellite IR' },
@@ -1329,25 +1337,30 @@ function setWLayer(type, btn) {
       })
       .catch(function(){
         radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/6/1_1.png',
+          'https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
           { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       });
 
   } else if (type === 'wind') {
-    // OpenWeatherMap wind — free public CDN, no key needed at overview zoom
+    // Windy.com / OWM wind layer with high opacity so you can clearly see wind patterns
     var windErrored = false;
     radarLayer = L.tileLayer(
       'https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=9de243494c0b295cca9337e1e96b00e2',
-      Object.assign({}, opts, { opacity: 0.82 }));
+      Object.assign({}, opts, { opacity: 1.0 })); // Full opacity — wind needs to be visible
     radarLayer.on('tileerror', function() {
       if (windErrored) return; windErrored = true;
-      reportError('layer', 'Wind tiles unavailable');
+      // Fallback: Iowa Mesonet wind barbs
+      if(wMap&&radarLayer) wMap.removeLayer(radarLayer);
+      radarLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/iemre-wind_speed/{z}/{x}/{y}.png',
+        Object.assign({}, opts, { opacity: 1.0 })).addTo(wMap);
+      reportError('layer', 'Wind tiles switched to fallback');
     });
     radarLayer.addTo(wMap);
     // Light NEXRAD on top for context
-    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/6/1_1.png',
-      { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
+    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
+      { opacity:0.25, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
 
   } else if (type === 'temp') {
     // OpenWeatherMap temperature — free public CDN
@@ -1399,7 +1412,7 @@ function setWLayer(type, btn) {
     });
     radarLayer.addTo(wMap);
     // Light radar on top
-    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/6/1_1.png',
+    wLayerObj = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/'+radarTimestamp+'/512/{z}/{x}/{y}/3/1_1.png',
       { opacity:0.2, tileSize:512, zoomOffset:-1, zIndex:3, crossOrigin:true }).addTo(wMap);
   }
 }
@@ -2753,32 +2766,40 @@ function onMapClickHandler(e) {
   loadWx(lat + ',' + lon);
 }
 
+var lightningTileLayer = null;
 function showLightningLayer(){
   if(!wMap) return;
-  // Simulated lightning strikes based on current precip data
-  // Real lightning data requires paid APIs — we simulate plausibly
   clearLightningLayer();
-  if(!wData) return;
-  var lat=wData.lat,lon=wData.lon;
-  var precip=wData.w.current.precipitation||0;
-  var count=precip>0.1?20:precip>0?8:2;
-  var seed=lat*100+lon;
-  function rnd(n){return((Math.sin(n+seed)*9999)%1+1)%1;}
-  for(var i=0;i<count;i++){
-    var dlat=(rnd(i*3)-.5)*4,dlon=(rnd(i*3+1)-.5)*6;
-    var age=Math.floor(rnd(i*3+2)*10); // 0-9 min ago
-    var icon=L.divIcon({
-      html:'<div style="font-size:'+(18-age)+'px;opacity:'+(1-age/12)+';line-height:1">⚡</div>',
-      className:'',iconSize:[20,20],iconAnchor:[10,10]
-    });
-    var m=L.marker([lat+dlat,lon+dlon],{icon:icon}).addTo(wMap)
-      .bindPopup('⚡ Lightning strike<br><small>~'+age+' min ago</small>');
-    lightningMarkers.push(m);
+  // Blitzortung real-time lightning tile layer
+  // Uses lightningmaps.org tile server which is public and free
+  lightningTileLayer = L.tileLayer(
+    'https://tiles3.lightningmaps.org/?x={x}&y={y}&z={z}',
+    { opacity:0.9, tileSize:256, zIndex:5, crossOrigin:true,
+      attribution:'© Blitzortung.org' }
+  );
+  lightningTileLayer.on('tileerror', function(){
+    // Fallback to blitzortung direct
+    if(lightningTileLayer) wMap.removeLayer(lightningTileLayer);
+    lightningTileLayer = L.tileLayer(
+      'https://tiles1.lightningmaps.org/?x={x}&y={y}&z={z}',
+      { opacity:0.9, tileSize:256, zIndex:5, crossOrigin:true }
+    ).addTo(wMap);
+  });
+  lightningTileLayer.addTo(wMap);
+  // Also add a legend marker
+  var info = L.divIcon({
+    html:'<div style="background:rgba(10,22,40,.85);border:1px solid rgba(255,193,7,.4);border-radius:8px;padding:4px 8px;font-size:10px;color:#ffc107;white-space:nowrap">⚡ Live Lightning — Blitzortung.org</div>',
+    className:'', iconSize:[200,24], iconAnchor:[100,-10]
+  });
+  if(userLat&&userLon) {
+    var infoMarker = L.marker([userLat+3, userLon], {icon:info}).addTo(wMap);
+    lightningMarkers.push(infoMarker);
   }
 }
 function clearLightningLayer(){
   lightningMarkers.forEach(function(m){if(wMap)wMap.removeLayer(m);});
   lightningMarkers=[];
+  if(lightningTileLayer){try{wMap.removeLayer(lightningTileLayer);}catch(e){}lightningTileLayer=null;}
 }
 
 // ── AQI + POLLEN IN WEATHER PAGE ─────────────────────────
@@ -3418,7 +3439,7 @@ function renderA() {
   var c=document.getElementById('alertsContainer'); if(!c) return;
   var act=alerts.filter(function(a){ return a.active && !a.expired && alertAppliesToCity(a); });
   var allActs = act.concat(nwsPanelAlerts || []);
-  if(!allActs.length){c.innerHTML='<div class="na">No active alerts for '+( wData ? wData.name : 'your area')+'</div>';return;}
+  if(!allActs.length){c.innerHTML='<div class="na"><div style="font-size:28px;margin-bottom:8px">✅</div><div>No active alerts for <b>'+(wData?wData.name:'your area')+'</b></div><div style="font-size:11px;color:var(--mut);margin-top:4px">All clear!</div></div>';return;}
   c.innerHTML=allActs.map(function(a){
     var sev = getAlertSev(a);
     var color = getAlertColor(a);
@@ -3444,12 +3465,16 @@ function renderA() {
   }).join('');
 }
 
-function openNWSModByIdx(el) {
-  var id = decodeURIComponent(el.dataset.nwsidx || '');
-  openNWSMod(id);
+function openNWSModByIdx(idx) {
+  var a = (nwsPanelAlerts||[])[idx];
+  if (!a) return;
+  openNWSModWithAlert(a);
 }
 function openNWSMod(id) {
   var a = (nwsPanelAlerts||[]).find(function(x){ return x.id===id; });
+  if (a) openNWSModWithAlert(a);
+}
+function openNWSModWithAlert(a) {
   if (!a) return;
   var color = getAlertColor(a);
   var mb = document.getElementById('mBdg');
@@ -4161,7 +4186,7 @@ setInterval(function() {
         radarTimestamp = ts;
         if (radarLayer) wMap.removeLayer(radarLayer);
         radarLayer = L.tileLayer(
-          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/6/1_1.png',
+          'https://tilecache.rainviewer.com/v2/radar/'+ts+'/512/{z}/{x}/{y}/3/1_1.png',
           { opacity:0.85, tileSize:512, zoomOffset:-1, zIndex:2, crossOrigin:true }
         ).addTo(wMap);
       }).catch(function(){});
