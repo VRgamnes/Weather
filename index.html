@@ -3447,11 +3447,12 @@ function renderA() {
     var label = a.nws ? (SEV_LBL[sev]||sev) : getAlertLabel(a);
     var hasZone = !a.nws && a.zoneLatLngs && a.zoneLatLngs.length > 2;
     var inZone  = hasZone ? pointInPolygon(userLat, userLon, a.zoneLatLngs) : false;
-    var nearTag = hasZone ? (inZone ? ' · <b>In zone</b>' : ' · Near zone') : '';
+    var nearTag = hasZone ? (inZone ? ' - <b>In zone</b>' : ' - Near zone') : '';
     var nwsTag  = a.nws ? '<span style="font-size:10px;background:rgba(79,195,247,.15);color:var(--a);border:1px solid rgba(79,195,247,.3);border-radius:6px;padding:1px 6px;margin-left:4px">NWS Official</span>' : '';
-    var expires = a.expires ? ' · Expires ' + fmt(a.expires) : '';
-    var clickFn = a.nws ? 'openNWSMod("'+a.id+'")' : 'openMod('+a.id+')';
-    return '<div class="ab '+sev+'" style="border-left:3px solid '+color+'" onclick="'+clickFn+'">' +
+    var expires = a.expires ? ' - Expires ' + fmt(a.expires) : '';
+    var nwsIdx = a.nws ? allActs.indexOf(a) : -1;
+    var clickAttr = a.nws ? 'onclick="openNWSModByIdx('+nwsIdx+')"' : 'onclick="openMod('+a.id+')"';
+    return '<div class="ab '+sev+'" style="border-left:3px solid '+color+'" '+clickAttr+'>' +
       '<div class="ai" style="font-size:18px">'+icon+'</div>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">' +
@@ -3466,7 +3467,12 @@ function renderA() {
 }
 
 function openNWSModByIdx(idx) {
-  var a = (nwsPanelAlerts||[])[idx];
+  // idx refers to position in allActs which is act.concat(nwsPanelAlerts)
+  // NWS alerts are always in nwsPanelAlerts so subtract admin alerts count
+  var adminCount = alerts.filter(function(a){ return a.active && !a.expired && alertAppliesToCity(a); }).length;
+  var nwsIdx = idx - adminCount;
+  var a = (nwsPanelAlerts||[])[nwsIdx];
+  if (!a) a = (nwsPanelAlerts||[])[idx]; // fallback try direct
   if (!a) return;
   openNWSModWithAlert(a);
 }
