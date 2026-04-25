@@ -226,6 +226,8 @@ body.light-mode .ab{color:#1a2332}
 .ticker-wrap{overflow:hidden;background:rgba(229,57,53,.15);border-bottom:1px solid rgba(229,57,53,.3);padding:5px 0;display:none}
 .ticker-wrap.on{display:block}
 .ticker{display:inline-block;white-space:nowrap;animation:tick 20s linear infinite;font-size:13px;font-weight:500;color:#ef5350;padding:0 20px}
+.err-filter{background:var(--card2);border:1px solid var(--bdr);border-radius:20px;color:var(--mut);font-size:11px;padding:4px 10px;cursor:pointer;transition:all .2s}
+.err-filter.on{background:rgba(239,83,80,.15);border-color:rgba(239,83,80,.4);color:#ef9a9a;font-weight:600}
 @keyframes tick{0%{transform:translateX(100vw)}100%{transform:translateX(-100%)}}
 /* MOTD banner */
 .motd-banner{padding:9px 14px;text-align:center;font-size:13px;display:none;border-bottom:1px solid var(--bdr)}
@@ -799,12 +801,32 @@ body.light-mode .ab{color:#1a2332}
   </div>
 
   <!-- ERROR LOG -->
-  <div class="ac">
-    <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
-      <span>🔴 Error Log</span>
-      <button onclick="errorLog=[];try{localStorage.removeItem('st_errlog');}catch(e){}renderErrorLog();" style="background:none;border:1px solid var(--bdr);border-radius:6px;color:var(--mut);font-size:11px;padding:3px 8px;cursor:pointer">Clear</button>
+  <div class="ac" id="errorLogCard">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="errDotBig" style="width:10px;height:10px;border-radius:50%;background:var(--ok);flex-shrink:0;transition:background .4s"></div>
+        <span style="font-weight:600;font-size:14px">System Errors</span>
+        <span id="errCountBadge" style="display:none;background:#e53935;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 7px">0</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="exportErrors()" style="background:var(--card2);border:1px solid var(--bdr);border-radius:8px;color:var(--mut);font-size:11px;padding:4px 10px;cursor:pointer">Export</button>
+        <button onclick="clearErrors()" style="background:var(--card2);border:1px solid var(--bdr);border-radius:8px;color:var(--dng);font-size:11px;padding:4px 10px;cursor:pointer">Clear</button>
+      </div>
     </div>
-    <div id="errorLogList"><div class="he">No errors logged</div></div>
+    <!-- Filter buttons -->
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="errFilters">
+      <button class="err-filter on" data-cat="all" onclick="setErrFilter(this)">All</button>
+      <button class="err-filter" data-cat="sync" onclick="setErrFilter(this)">📡 Sync</button>
+      <button class="err-filter" data-cat="radar" onclick="setErrFilter(this)">🗺 Radar</button>
+      <button class="err-filter" data-cat="nws" onclick="setErrFilter(this)">⚠️ NWS</button>
+      <button class="err-filter" data-cat="weather" onclick="setErrFilter(this)">⛅ Weather</button>
+      <button class="err-filter" data-cat="gps" onclick="setErrFilter(this)">📍 GPS</button>
+      <button class="err-filter" data-cat="notif" onclick="setErrFilter(this)">🔔 Notif</button>
+    </div>
+    <!-- Status summary -->
+    <div id="errSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <!-- Log list -->
+    <div id="errorLogList" style="max-height:320px;overflow-y:auto"><div class="he">✅ No errors logged</div></div>
   </div>
 
   <!-- CLEAR ALL ALERTS -->
@@ -978,18 +1000,86 @@ function reportError(category, msg, detail) {
   console.error('[StormTrack]['+category+']', msg, detail||'');
 }
 
+var errFilter = 'all';
+
+function setErrFilter(btn) {
+  errFilter = btn.dataset.cat;
+  document.querySelectorAll('.err-filter').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderErrorLog();
+}
+
+function clearErrors() {
+  errorLog = [];
+  try { localStorage.removeItem('st_errlog'); } catch(e) {}
+  renderErrorLog();
+}
+
+function exportErrors() {
+  var txt = errorLog.map(function(e) {
+    return '['+new Date(e.time).toLocaleString()+'] ['+e.category.toUpperCase()+'] '+e.msg+(e.detail?' | '+e.detail:'');
+  }).join('\n');
+  var blob = new Blob([txt], {type:'text/plain'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stormtrack-errors-'+new Date().toISOString().slice(0,10)+'.txt';
+  a.click();
+}
+
 function renderErrorLog() {
   var c = document.getElementById('errorLogList'); if (!c) return;
-  if (!errorLog.length) { c.innerHTML = '<div class="he">No errors logged</div>'; return; }
-  c.innerHTML = errorLog.slice(0,30).map(function(e) {
-    var col = '#ef5350';
+  var badge = document.getElementById('errCountBadge');
+  var dot = document.getElementById('errDotBig');
+  var summary = document.getElementById('errSummary');
+
+  // Update badge and dot
+  var total = errorLog.length;
+  if (badge) {
+    badge.textContent = total;
+    badge.style.display = total ? 'inline-block' : 'none';
+  }
+  if (dot) {
+    dot.style.background = total === 0 ? 'var(--ok)' : total < 5 ? 'var(--warn)' : 'var(--dng)';
+  }
+
+  // Summary by category
+  if (summary) {
+    var cats = {};
+    errorLog.forEach(function(e) { cats[e.category] = (cats[e.category]||0)+1; });
     var icons = {sync:'📡',radar:'🗺️',satellite:'🛰',weather:'⛅',nws:'⚠️',gps:'📍',notif:'🔔',layer:'🗺️',save:'💾'};
-    return '<div class="log-item">' +
-      '<span style="margin-right:5px">'+(icons[e.category]||'⚠️')+'</span>' +
-      '<span style="color:'+col+';font-weight:500">'+e.category.toUpperCase()+'</span> — '+e.msg +
-      (e.detail ? '<div style="font-size:10px;color:var(--mut);margin-top:2px;word-break:break-all">'+e.detail+'</div>' : '') +
-      '<div class="log-time">'+new Date(e.time).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</div>' +
-      '</div>';
+    summary.innerHTML = Object.keys(cats).map(function(cat) {
+      return '<div style="background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.25);border-radius:8px;padding:3px 9px;font-size:11px;color:#ef9a9a">' +
+        (icons[cat]||'⚠️')+' '+cat+' <b>'+cats[cat]+'</b></div>';
+    }).join('');
+  }
+
+  if (!errorLog.length) {
+    c.innerHTML = '<div class="he" style="padding:20px 0;text-align:center"><div style="font-size:28px;margin-bottom:6px">✅</div>No errors — all systems good</div>';
+    return;
+  }
+
+  var filtered = errFilter === 'all' ? errorLog : errorLog.filter(function(e){ return e.category === errFilter; });
+  if (!filtered.length) { c.innerHTML = '<div class="he">No '+errFilter+' errors</div>'; return; }
+
+  var icons = {sync:'📡',radar:'🗺️',satellite:'🛰',weather:'⛅',nws:'⚠️',gps:'📍',notif:'🔔',layer:'🗺️',save:'💾'};
+  var catColors = {sync:'#f48fb1',radar:'#80cbc4',nws:'#ffcc02',weather:'#81d4fa',gps:'#a5d6a7',notif:'#ce93d8',save:'#ffab91'};
+
+  c.innerHTML = filtered.slice(0,50).map(function(e) {
+    var col = catColors[e.category] || '#ef9a9a';
+    var icon = icons[e.category] || '⚠️';
+    var time = new Date(e.time);
+    var timeStr = time.toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return '<div style="background:var(--card2);border:1px solid var(--bdr);border-left:3px solid '+col+';border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span>'+icon+'</span>' +
+          '<span style="font-size:11px;font-weight:700;color:'+col+';letter-spacing:.5px">'+e.category.toUpperCase()+'</span>' +
+        '</div>' +
+        '<span style="font-size:10px;color:var(--mut)">'+timeStr+'</span>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--txt);line-height:1.4">'+e.msg+'</div>' +
+      (e.detail ? '<div style="font-size:10px;color:var(--mut);margin-top:4px;padding:4px 6px;background:rgba(0,0,0,.2);border-radius:5px;word-break:break-all;font-family:monospace">'+e.detail.slice(0,200)+'</div>' : '') +
+    '</div>';
   }).join('');
 }
 
@@ -1114,13 +1204,7 @@ var OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 // RainViewer radar tiles — free, no key required
 // We fetch the latest radar timestamp from RainViewer API
 var radarTimestamp = Math.floor(Date.now() / 1000) - 600; // ~10 min ago as fallback
-// Pre-fetch radar timestamp as early as possible so map shows correct data immediately
-fetch('https://api.rainviewer.com/public/weather-maps.json')
-  .then(function(r){return r.json();})
-  .then(function(d){
-    var frames = d.radar && d.radar.past ? d.radar.past : [];
-    if (frames.length) radarTimestamp = frames[frames.length-1].time;
-  }).catch(function(){});
+// Radar uses Iowa Mesonet NEXRAD — no pre-fetch needed
 
 // ─── MAIN WEATHER MAP ────────────────────────────────────
 var wMap = null, radarLayer = null, windLayer = null, tempLayer = null, cloudLayer = null;
@@ -1261,7 +1345,7 @@ function updateLegend(type) {
   if (!scale) return;
 
   var legends = {
-    rain:   { grad:'linear-gradient(to right,#00d8ff 0%,#00aaff 15%,#0055ff 25%,#00ff00 35%,#00cc00 42%,#ffff00 52%,#ffaa00 62%,#ff5500 72%,#ff0000 82%,#cc0000 88%,#ff00ff 94%,#ffffff 100%)', min:'Light', max:'Extreme', lbl:'⚡ Live Radar (TWC)' },
+    rain:   { grad:'linear-gradient(to right,#646464,#04e9e7,#019ff4,#0300f4,#02fd02,#01c501,#008e00,#fdf802,#e5bc00,#fd9500,#fd0000,#d40000,#bc0000,#f800fd)', min:'Light', max:'Extreme', lbl:'NEXRAD (NWS colors)' },
     wind:   { grad:'linear-gradient(to right,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'Calm', max:'60+ mph', lbl:'Wind Speed' },
     temp:   { grad:'linear-gradient(to right,#9c27b0,#3f51b5,#4fc3f7,#43a047,#ffeb3b,#ff8f00,#e53935)', min:'-20°F', max:'110°F', lbl:'Temperature' },
     clouds: { grad:'linear-gradient(to right,#111,#555,#aaa,#ddd,#fff)', min:'Clear', max:'Storm', lbl:'GOES-16 Satellite IR' },
@@ -1989,7 +2073,7 @@ function animateRadarFrame() {
   var frame = radarLoopFrames[radarLoopIdx];
   if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
   radarLayer = L.tileLayer(
-    'https://tilecache.rainviewer.com/v2/radar/'+frame.time+'/256/{z}/{x}/{y}/8/1_1.png',
+    'https://tilecache.rainviewer.com/v2/radar/'+frame.time+'/256/{z}/{x}/{y}/5/1_1.png',
     { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
   ).addTo(wMap);
   // Show frame time
