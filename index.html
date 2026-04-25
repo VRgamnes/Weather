@@ -495,10 +495,35 @@ body.light-mode .ab{color:#1a2332}
 
 <!-- MAINTENANCE OVERLAY -->
 <div class="maint-overlay" id="maintOverlay">
-  <div style="font-size:56px;margin-bottom:16px">🔧</div>
+  <div style="font-size:56px;margin-bottom:16px;filter:drop-shadow(0 0 20px rgba(79,195,247,.4))">🔧</div>
   <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:3px;color:var(--a);margin-bottom:10px">Maintenance Mode</div>
   <div style="font-size:15px;color:var(--txt);margin-bottom:8px;font-weight:500" id="maintMsg">StormTrack is temporarily unavailable</div>
-  <div style="font-size:13px;color:var(--mut)">Please check back soon</div>
+  <div style="font-size:13px;color:var(--mut);margin-bottom:28px">Please check back soon</div>
+  <!-- Admin bypass -->
+  <div id="maintBypass" style="margin-top:8px">
+    <div style="font-size:11px;color:var(--mut);margin-bottom:10px;opacity:.6">Admin access</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:10px" id="maintDots">
+      <div style="width:10px;height:10px;border-radius:50%;border:2px solid var(--mut);transition:background .2s" id="md0"></div>
+      <div style="width:10px;height:10px;border-radius:50%;border:2px solid var(--mut);transition:background .2s" id="md1"></div>
+      <div style="width:10px;height:10px;border-radius:50%;border:2px solid var(--mut);transition:background .2s" id="md2"></div>
+      <div style="width:10px;height:10px;border-radius:50%;border:2px solid var(--mut);transition:background .2s" id="md3"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:200px;margin:0 auto">
+      <button onclick="maintPin(1)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">1</button>
+      <button onclick="maintPin(2)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">2</button>
+      <button onclick="maintPin(3)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">3</button>
+      <button onclick="maintPin(4)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">4</button>
+      <button onclick="maintPin(5)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">5</button>
+      <button onclick="maintPin(6)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">6</button>
+      <button onclick="maintPin(7)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">7</button>
+      <button onclick="maintPin(8)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">8</button>
+      <button onclick="maintPin(9)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">9</button>
+      <button onclick="maintPinClear()" class="pk" style="background:var(--card);border:1px solid var(--bdr);font-size:11px">✕</button>
+      <button onclick="maintPin(0)" class="pk" style="background:var(--card);border:1px solid var(--bdr)">0</button>
+      <button onclick="maintPinClear()" class="pk" style="background:var(--card);border:1px solid var(--bdr);font-size:11px">⌫</button>
+    </div>
+    <div id="maintPinFb" style="font-size:12px;color:var(--dng);margin-top:10px;height:16px;text-align:center"></div>
+  </div>
 </div>
 
 <div class="pg on" id="wPg">
@@ -731,27 +756,7 @@ body.light-mode .ab{color:#1a2332}
     </div>
   </div>
 
-  <!-- DAILY WEATHER QUESTION -->
-  <div class="ac">
-    <div class="ct">Daily Weather Question</div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:10px">Every day at the set time, automatically generates a weather-based question for your location and shows it as the message of the day for all users.</div>
-    <div class="fg">
-      <label class="fl">Send time (EST)</label>
-      <div class="thresh-row">
-        <input class="inp" id="wxQTime" type="time" value="08:00" style="width:120px"/>
-        <div class="tg" id="wxQTg" onclick="togWxQ()"><div class="tgk"></div></div>
-      </div>
-    </div>
-    <div class="fg">
-      <label class="fl">Preview — what today's question would be</label>
-      <div id="wxQPreview" style="font-size:13px;color:var(--a);padding:8px;background:var(--card);border-radius:8px;border:1px solid var(--bdr);min-height:36px">Press Preview to generate</div>
-    </div>
-    <div style="display:flex;gap:7px">
-      <button class="sb" style="flex:1;background:var(--card);color:var(--txt);border:1px solid var(--bdr)" onclick="previewWxQ()">👁 Preview</button>
-      <button class="sb" style="flex:1" onclick="saveWxQ()">💾 Save Schedule</button>
-    </div>
-    <div class="pcf" id="wxQFb"></div>
-  </div>
+
 
   <!-- ALERT SOUND -->
   <div class="ac">
@@ -774,17 +779,7 @@ body.light-mode .ab{color:#1a2332}
 
 >
 
-  <!-- SCHEDULED MAINTENANCE WINDOW -->
-  <div class="ac">
-    <div class="ct">Scheduled Maintenance Window</div>
-    <div class="maint-sched">
-      <div class="fg" style="flex:1"><label class="fl">Start</label><input class="inp" id="maintStart" type="datetime-local"/></div>
-      <div class="fg" style="flex:1"><label class="fl">End</label><input class="inp" id="maintEnd" type="datetime-local"/></div>
-    </div>
-    <input class="inp" id="maintSchedMsg" placeholder="Maintenance message..." style="margin-bottom:8px"/>
-    <button class="sb" onclick="scheduleMaint()">📅 Schedule Maintenance</button>
-    <div class="pcf" id="maintFb"></div>
-  </div>
+
 
   <!-- USER COUNT -->
   <div class="ac">
@@ -1119,6 +1114,13 @@ var OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 // RainViewer radar tiles — free, no key required
 // We fetch the latest radar timestamp from RainViewer API
 var radarTimestamp = Math.floor(Date.now() / 1000) - 600; // ~10 min ago as fallback
+// Pre-fetch radar timestamp as early as possible so map shows correct data immediately
+fetch('https://api.rainviewer.com/public/weather-maps.json')
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var frames = d.radar && d.radar.past ? d.radar.past : [];
+    if (frames.length) radarTimestamp = frames[frames.length-1].time;
+  }).catch(function(){});
 
 // ─── MAIN WEATHER MAP ────────────────────────────────────
 var wMap = null, radarLayer = null, windLayer = null, tempLayer = null, cloudLayer = null;
@@ -1542,20 +1544,39 @@ function restoreNWSIfNeeded(map) {
 // Cache for zone geometries fetched from NWS
 var nwsZoneCache = {};
 
-function fetchAndDrawZone(map, zoneUrl, f) {
+function fetchAndDrawZone(map, zoneUrl, f, zoneId) {
   if (nwsZoneCache[zoneUrl]) {
     drawNWSFeature(map, nwsZoneCache[zoneUrl], f);
     return;
   }
   fetch(zoneUrl, { headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' } })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(d) {
       if (d.geometry) {
         nwsZoneCache[zoneUrl] = d.geometry;
         drawNWSFeature(map, d.geometry, f);
+      } else if (d.properties && d.properties.geometry) {
+        nwsZoneCache[zoneUrl] = d.properties.geometry;
+        drawNWSFeature(map, d.properties.geometry, f);
       }
     })
-    .catch(function() {});
+    .catch(function() {
+      // Try alternate zone type if first failed
+      if (!zoneId) return;
+      var tried = zoneUrl.indexOf('/county/') >= 0 ? 'county' : zoneUrl.indexOf('/fire/') >= 0 ? 'fire' : 'forecast';
+      var tryTypes = ['forecast','county','fire'].filter(function(t){ return t !== tried; });
+      var alt = 'https://api.weather.gov/zones/' + tryTypes[0] + '/' + zoneId;
+      if (nwsZoneCache[alt]) { drawNWSFeature(map, nwsZoneCache[alt], f); return; }
+      fetch(alt, { headers: { 'Accept': 'application/geo+json', 'User-Agent': 'StormTrack/1.0' } })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.geometry) { nwsZoneCache[alt]=d.geometry; drawNWSFeature(map,d.geometry,f); }
+        })
+        .catch(function(){});
+    });
 }
 
 function drawNWSFeature(map, geom, f) {
@@ -1716,9 +1737,13 @@ function drawNWSFeatures(map, features) {
     var ugc = (p.geocode && p.geocode.UGC) ? p.geocode.UGC : [];
     if (ugc.length) {
       var zoneId = ugc[0];
-      var zoneType = zoneId.charAt(2) === 'C' ? 'county' : zoneId.charAt(2) === 'F' ? 'fire' : 'forecast';
+      // NWS zone ID format: 2-char state + 1-char type + 3-digit number
+      // Z = forecast zone, C = county zone, F = fire weather zone
+      var zoneChar = zoneId.charAt(2);
+      var zoneType = zoneChar === 'C' ? 'county' : zoneChar === 'F' ? 'fire' : 'forecast';
+      // Try forecast first, fallback to county if it fails
       var zoneUrl = 'https://api.weather.gov/zones/' + zoneType + '/' + zoneId;
-      fetchAndDrawZone(map, zoneUrl, f);
+      fetchAndDrawZone(map, zoneUrl, f, zoneId);
     }
   });
 }
@@ -2560,6 +2585,52 @@ function playAlertSound(sev) {
 }
 
 // Maintenance
+// Maintenance overlay admin bypass
+var maintPinEntry = '';
+function maintPin(d) {
+  if (maintPinEntry.length >= 4) return;
+  maintPinEntry += String(d);
+  // Update dots
+  for (var i=0; i<4; i++) {
+    var dot = document.getElementById('md'+i);
+    if (dot) dot.style.background = i < maintPinEntry.length ? 'var(--a)' : 'transparent';
+  }
+  if (maintPinEntry.length === 4) {
+    setTimeout(checkMaintPin, 150);
+  }
+}
+function maintPinClear() {
+  maintPinEntry = maintPinEntry.slice(0,-1);
+  for (var i=0; i<4; i++) {
+    var dot = document.getElementById('md'+i);
+    if (dot) dot.style.background = i < maintPinEntry.length ? 'var(--a)' : 'transparent';
+  }
+}
+function checkMaintPin() {
+  var correct = localStorage.getItem('st_pin') || '6211';
+  if (maintPinEntry === correct) {
+    // Correct — bypass maintenance and go to admin
+    document.getElementById('maintOverlay').classList.remove('on');
+    maintPinEntry = '';
+    goAdmin();
+  } else {
+    var fb = document.getElementById('maintPinFb');
+    if (fb) fb.textContent = 'Incorrect PIN';
+    maintPinEntry = '';
+    for (var i=0; i<4; i++) {
+      var dot = document.getElementById('md'+i);
+      if (dot) dot.style.background = 'var(--dng)';
+    }
+    setTimeout(function() {
+      for (var i=0; i<4; i++) {
+        var dot = document.getElementById('md'+i);
+        if (dot) dot.style.background = 'transparent';
+      }
+      if (fb) fb.textContent = '';
+    }, 1000);
+  }
+}
+
 function enableMaint() {
   var msg = document.getElementById('maintInput').value.trim() || 'StormTrack is temporarily unavailable';
   appSettings.maintOn=true; appSettings.maintMsg=msg;
