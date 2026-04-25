@@ -1736,14 +1736,13 @@ function drawNWSFeatures(map, features) {
     // No geometry — fetch zone boundary
     var ugc = (p.geocode && p.geocode.UGC) ? p.geocode.UGC : [];
     if (ugc.length) {
-      var zoneId = ugc[0];
-      // NWS zone ID format: 2-char state + 1-char type + 3-digit number
-      // Z = forecast zone, C = county zone, F = fire weather zone
-      var zoneChar = zoneId.charAt(2);
-      var zoneType = zoneChar === 'C' ? 'county' : zoneChar === 'F' ? 'fire' : 'forecast';
-      // Try forecast first, fallback to county if it fails
-      var zoneUrl = 'https://api.weather.gov/zones/' + zoneType + '/' + zoneId;
-      fetchAndDrawZone(map, zoneUrl, f, zoneId);
+      // Draw ALL UGC zones for this alert, not just the first one
+      ugc.slice(0, 8).forEach(function(zoneId) { // cap at 8 per alert to avoid rate limits
+        var zoneChar = zoneId.charAt(2);
+        var zoneType = zoneChar === 'C' ? 'county' : zoneChar === 'F' ? 'fire' : 'forecast';
+        var zoneUrl = 'https://api.weather.gov/zones/' + zoneType + '/' + zoneId;
+        fetchAndDrawZone(map, zoneUrl, f, zoneId);
+      });
     }
   });
 }
@@ -1990,7 +1989,7 @@ function animateRadarFrame() {
   var frame = radarLoopFrames[radarLoopIdx];
   if (radarLayer) { try{wMap.removeLayer(radarLayer);}catch(e){} radarLayer=null; }
   radarLayer = L.tileLayer(
-    'https://tilecache.rainviewer.com/v2/radar/'+frame.time+'/256/{z}/{x}/{y}/3/1_1.png',
+    'https://tilecache.rainviewer.com/v2/radar/'+frame.time+'/256/{z}/{x}/{y}/8/1_1.png',
     { opacity:0.85, tileSize:256, zIndex:2, crossOrigin:true }
   ).addTo(wMap);
   // Show frame time
@@ -2321,7 +2320,8 @@ function applySettings(s) {
   if (mt && s.motd) mt.textContent = s.motd;
   // Maintenance
   var mo = document.getElementById('maintOverlay'), mm = document.getElementById('maintMsg');
-  if (mo) mo.classList.toggle('on', !!s.maintOn);
+  var bypassMaint = localStorage.getItem('st_maint_bypass') === '1';
+  if (mo) mo.classList.toggle('on', !!s.maintOn && !bypassMaint);
   if (mm && s.maintMsg) mm.textContent = s.maintMsg;
   // Sound
   soundOn = s.soundOn !== false;
@@ -2609,7 +2609,8 @@ function maintPinClear() {
 function checkMaintPin() {
   var correct = localStorage.getItem('st_pin') || '6211';
   if (maintPinEntry === correct) {
-    // Correct — bypass maintenance and go to admin
+    // Correct — bypass maintenance, set local bypass flag so sync doesn't re-enable it
+    localStorage.setItem('st_maint_bypass', '1');
     document.getElementById('maintOverlay').classList.remove('on');
     maintPinEntry = '';
     goAdmin();
@@ -2636,7 +2637,7 @@ function enableMaint() {
   appSettings.maintOn=true; appSettings.maintMsg=msg;
   applySettings(appSettings); saveSettings();
 }
-function disableMaint() { appSettings.maintOn=false; applySettings(appSettings); saveSettings(); }
+function disableMaint() { appSettings.maintOn=false; localStorage.removeItem('st_maint_bypass'); applySettings(appSettings); saveSettings(); }
 
 // Clear all
 function clearAllAlerts() {
